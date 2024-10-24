@@ -4,12 +4,12 @@ if (!defined('ABSPATH')) {
     exit; 
 }
 
-// Fonction de génération des commentaires via Cron
+
 function acg_cron_generate_comments() {
     $enabled = get_option('acg_auto_comment_enabled', 1);
 
     if (!$enabled) {
-        return; // Ne pas générer de commentaires si désactivé
+        return;
     }
 
     $posts = get_posts(['numberposts' => -1, 'post_type' => 'post', 'post_status' => 'publish']);
@@ -17,8 +17,8 @@ function acg_cron_generate_comments() {
     $min_words = get_option('acg_min_words', 5);
     $max_words = get_option('acg_max_words', 20);
     $writing_style = get_option('acg_writing_style', '');
-    $gpt_model = get_option('acg_gpt_model', 'gpt-4o-mini'); // Obtention du modèle GPT choisi
-    $comment_count = get_option('acg_comment_count', 1); // Obtention du nombre de commentaires à générer
+    $gpt_model = get_option('acg_gpt_model', 'gpt-4o-mini');
+    $comment_count = get_option('acg_comment_count', 1);
 
     foreach ($posts as $post) {
         $post_id = $post->ID;
@@ -31,11 +31,19 @@ function acg_cron_generate_comments() {
 
         $auto_comment_enabled = get_post_meta($post_id, '_acg_auto_comment_enabled', true);
         if (!$auto_comment_enabled) {
-            continue; // Passer à la prochaine publication si les commentaires automatiques ne sont pas activés
+            continue; 
         }
 
+        // Récupération de l'auteur de l'article
+        $post_author_id = get_post_field('post_author', $post_id); 
+        $post_author_first_name = get_user_meta($post_author_id, 'first_name', true);
+        $post_author_display_name = get_the_author_meta('display_name', $post_author_id);
+
+        // Prénom si existant, sinon, nom d'affichage
+        $post_author = !empty($post_author_first_name) ? $post_author_first_name : $post_author_display_name;
+
         for ($i = 0; $i < $comment_count; $i++) {
-            // Mettre en place la logique pour appeler l'API OpenAI et insérer le commentaire
+     
             $full_prompt = [
                 [
                     'role' => 'system',
@@ -43,7 +51,7 @@ function acg_cron_generate_comments() {
                 ],
                 [
                     'role' => 'user',
-                    'content' => 'Ecris un commentaire d\'environ entre ' . intval($min_words) . ' et ' . intval($max_words) . ' mots. Donne-moi un json avec la variable "auteur" et la variable "commentaire". Invente un nom et prénom unique et rédige un commentaire court et naturel.'
+                    'content' => 'Adresse toi directement à l\'auteur de l\'article, ' . $post_author . ', en répondant : Ecris un commentaire d\'environ entre ' . intval($min_words) . ' et ' . intval($max_words) . ' mots. Donne-moi un json avec la variable "auteur" et la variable "commentaire". Invente un nom et prénom unique différents de noms-prenoms classiques et rédige un commentaire court.'
                 ]
             ];
 
@@ -54,7 +62,7 @@ function acg_cron_generate_comments() {
                     'Content-Type' => 'application/json',
                 ],
                 'body' => json_encode([
-                    'model' => $gpt_model, // Utilisation du modèle choisi
+                    'model' => $gpt_model,
                     'messages' => $full_prompt,
                     'temperature' => 1,
                     'max_tokens' => 150,
@@ -67,7 +75,7 @@ function acg_cron_generate_comments() {
                 ]),
             ]);
 
-            // Traitement de la réponse d'OpenAI
+           
             if (is_wp_error($response)) {
                 error_log('Erreur API: ' . $response->get_error_message());
                 continue;
@@ -101,4 +109,3 @@ function acg_cron_generate_comments() {
     }
 }
 add_action('acg_cron_hook', 'acg_cron_generate_comments');
-

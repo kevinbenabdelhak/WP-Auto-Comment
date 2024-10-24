@@ -28,6 +28,7 @@ function acg_options_page() {
             $auto_comment_enabled = get_option('acg_auto_comment_enabled', 1); 
             $gpt_model = get_option('acg_gpt_model', 'gpt-4o-mini'); 
             $comment_count = get_option('acg_comment_count', 1); 
+			$citationprenomauteur = get_option('citationprenomauteur', 1); 
             ?>
             <table class="form-table">
                 <tr valign="top"><th scope="row" colspan="2" style="padding:0px !important;"><h2 style="margin:8px 0px !important;">Commentaire</h2></th></tr>
@@ -52,6 +53,12 @@ function acg_options_page() {
                     <th scope="row">Instructions</th>
                     <td><textarea name="acg_writing_style" rows="4" cols="50"><?php echo esc_textarea($writing_style); ?></textarea>
                         <p>Indiquez un style d'écriture pour rédiger des commentaires personnalisées.<br>Exemple : <code>Créez un commentaire qui incite à la discussion. Posez une question ou partagez une opinion sur le sujet de l'article.</code></p>
+                    </td>
+                </tr>
+				 <tr valign="top">
+                    <th scope="row">Inclure le prénom de l'auteur</th>
+                     <td><input type="checkbox" name="citationprenomauteur" value="1" <?php checked($citationprenomauteur, 1); ?> />
+                    <p>Permet d'inclure le prénom de l'auteur de l'article dans le commentaire.<br>Exemple : <code>Bonjour Kevin, merci pour cet article !</code></p>
                     </td>
                 </tr>
                 <tr valign="top">
@@ -88,6 +95,8 @@ function acg_options_page() {
                     <p>Indiquez un nombre de commentaire par article</p>
                     </td>
                 </tr>
+				
+				           
             </table>
             <?php submit_button(); ?>
         </form>
@@ -104,6 +113,8 @@ function acg_register_settings() {
     register_setting('acg_options_group', 'acg_auto_comment_enabled'); 
     register_setting('acg_options_group', 'acg_gpt_model'); 
     register_setting('acg_options_group', 'acg_comment_count'); 
+	register_setting('acg_options_group', 'citationprenomauteur'); 
+	
 }
 
 

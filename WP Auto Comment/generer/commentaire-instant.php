@@ -1,10 +1,8 @@
 <?php 
 
-
 if (!defined('ABSPATH')) {
     exit; 
 }
-
 
 function acg_generate_comment() {
     check_ajax_referer('acg_nonce', 'nonce');
@@ -16,7 +14,22 @@ function acg_generate_comment() {
     $min_words = get_option('acg_min_words', 5);
     $max_words = get_option('acg_max_words', 20);
     $gpt_model = get_option('acg_gpt_model', 'gpt-4o-mini'); 
+    $citationprenomauteur = get_option('citationprenomauteur', 0); // Default to 0 if not set
 
+    // Récupération de l'auteur de l'article
+    $post_author_id = get_post_field('post_author', $post_id); 
+    $post_author_first_name = get_user_meta($post_author_id, 'first_name', true);
+    $post_author_display_name = get_the_author_meta('display_name', $post_author_id);
+
+    // Utiliser le prénom si disponible, sinon utiliser le nom d'affichage
+    $post_author = !empty($post_author_first_name) ? $post_author_first_name : $post_author_display_name;
+
+    if ($citationprenomauteur == 1) {
+        $inclureauteur = "Adresse toi directement à l'auteur de l'article, " . $post_author . ", en répondant : ";
+    } else {
+        $inclureauteur = ""; // laisser vide ce champ
+    }
+    
     if (empty($api_key)) {
         wp_send_json_error(['data' => 'Clé API OpenAI non configurée.']);
     }
@@ -28,7 +41,7 @@ function acg_generate_comment() {
         ],
         [
             'role' => 'user',
-            'content' => 'Ecris un commentaire d\'environ entre ' . intval($min_words) . ' et ' . intval($max_words) . ' mots. Donne-moi un json avec la variable "auteur" et la variable "commentaire". Invente un nom et prénom unique et rédige un commentaire court.'
+            'content' => $inclureauteur . 'Ecris un commentaire d\'environ entre ' . intval($min_words) . ' et ' . intval($max_words) . ' mots. Donne-moi un json avec la variable "auteur" et la variable "commentaire". Invente un nom et prénom unique différents de noms-prenoms classiques et rédige un commentaire court.'
         ]
     ];
 
@@ -73,7 +86,6 @@ function acg_generate_comment() {
                 'comment_approved' => 1,
             );
 
-
             $comment_id = wp_insert_comment($comment_data);
 
             $post_data = array(
@@ -95,8 +107,6 @@ function acg_generate_comment() {
     }
 }
 add_action('wp_ajax_acg_generate_comment', 'acg_generate_comment');
-
-
 
 
 // activer/désactiver les commentaires automatiques
