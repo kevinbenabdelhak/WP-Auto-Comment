@@ -48,7 +48,10 @@ WP Auto Comment est un plugin WordPress qui permet de générer automatiquement 
    - Allez dans "Réglages" > "WP Auto Comment".
    - Entrez vos paramètres d'API OpenAI pour activer la génération de commentaires.
 
-## Mise à jour
+## MAJ
+
+### 1.1
+*  Ajout d'une case à cocher dans les options pour s'adresser directement à l'auteur (exemple : Bonjour Kevin, merci pour cet article)
 
 ### 1.0
 *  Ajoutez des commentaires avec les actions groupées
