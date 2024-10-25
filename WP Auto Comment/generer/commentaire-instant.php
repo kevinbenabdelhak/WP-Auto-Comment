@@ -10,38 +10,51 @@ function acg_generate_comment() {
     $post_id = intval($_POST['post_id']);
     $api_key = get_option('acg_api_key', '');
     $post_content = get_post_field('post_content', $post_id);
-    $writing_style = get_option('acg_writing_style', '');
     $min_words = get_option('acg_min_words', 5);
     $max_words = get_option('acg_max_words', 20);
     $gpt_model = get_option('acg_gpt_model', 'gpt-4o-mini'); 
-    $citationprenomauteur = get_option('citationprenomauteur', 0); // Default to 0 if not set
-
-    // Récupération de l'auteur de l'article
+    $writing_styles = get_option('acg_writing_styles', []);
+    $include_author_names = get_option('acg_include_author_names', []);
     $post_author_id = get_post_field('post_author', $post_id); 
     $post_author_first_name = get_user_meta($post_author_id, 'first_name', true);
     $post_author_display_name = get_the_author_meta('display_name', $post_author_id);
 
-    // Utiliser le prénom si disponible, sinon utiliser le nom d'affichage
+
     $post_author = !empty($post_author_first_name) ? $post_author_first_name : $post_author_display_name;
 
-    if ($citationprenomauteur == 1) {
+    $current_index = get_post_meta($post_id, '_acg_current_style_index', true); 
+    if ($current_index === '') {
+        $current_index = 0; 
+    }
+
+
+    $style = $writing_styles[$current_index];
+
+
+    $include_author_name = in_array($current_index, $include_author_names);
+    if ($include_author_name) {
         $inclureauteur = "Adresse toi directement à l'auteur de l'article, " . $post_author . ", en répondant : ";
     } else {
-        $inclureauteur = ""; // laisser vide ce champ
     }
-    
+
     if (empty($api_key)) {
         wp_send_json_error(['data' => 'Clé API OpenAI non configurée.']);
     }
 
+
+    if (empty($writing_styles)) {
+        wp_send_json_error(['data' => 'Aucun style d\'écriture disponible.']);
+    }
+
+ 
     $full_prompt = [
         [
             'role' => 'system',
-            'content' => 'Voici le contenu de l\'article : ' . $post_content . '. Voici le style d\'écriture : ' . $writing_style
+            'content' => 'Voici le contenu de l\'article : ' . $post_content . '. Voici le style d\'ecriture et instructions : ' . $style
         ],
         [
             'role' => 'user',
-            'content' => $inclureauteur . 'Ecris un commentaire d\'environ entre ' . intval($min_words) . ' et ' . intval($max_words) . ' mots. Donne-moi un json avec la variable "auteur" et la variable "commentaire". Invente un nom et prénom unique différents de noms-prenoms classiques et rédige un commentaire court.'
+            'content' => $inclureauteur . 'Ecris un commentaire d\'environ entre ' . intval($min_words) . ' et ' . intval($max_words) . ' mots. Donne-moi un json avec la variable "auteur" et la variable "commentaire". Si aucun prenom est specifie dans style d\'écriture pour les infos de l\'auteur du commentaire, alors invente un nom et prénom unique différents de noms prenoms classiques et rédige un commentaire court, sinon, utilise le prenom specifié dans le style decriture concernant l\'auteur du commentaire..'
         ]
     ];
 
@@ -88,14 +101,11 @@ function acg_generate_comment() {
 
             $comment_id = wp_insert_comment($comment_data);
 
-            $post_data = array(
-                'ID' => $post_id,
-            );
-
-            wp_update_post($post_data);
+            $current_index = ($current_index + 1) % count($writing_styles);
+            update_post_meta($post_id, '_acg_current_style_index', $current_index);
 
             if ($comment_id) {
-                wp_send_json_success();
+                wp_send_json_success(['data' => 'Commentaire créé']);
             } else {
                 wp_send_json_error('Erreur lors de l\'insertion du commentaire.');
             }
@@ -107,17 +117,3 @@ function acg_generate_comment() {
     }
 }
 add_action('wp_ajax_acg_generate_comment', 'acg_generate_comment');
-
-
-// activer/désactiver les commentaires automatiques
-function acg_toggle_auto_comment() {
-    check_ajax_referer('acg_nonce', 'nonce');
-
-    $post_id = intval($_POST['post_id']);
-    $enabled = intval($_POST['enabled']);
-
-    update_post_meta($post_id, '_acg_auto_comment_enabled', $enabled);
-
-    wp_send_json_success();
-}
-add_action('wp_ajax_acg_toggle_auto_comment', 'acg_toggle_auto_comment');

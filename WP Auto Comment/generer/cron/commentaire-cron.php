@@ -4,7 +4,6 @@ if (!defined('ABSPATH')) {
     exit; 
 }
 
-
 function acg_cron_generate_comments() {
     $enabled = get_option('acg_auto_comment_enabled', 1);
 
@@ -16,9 +15,15 @@ function acg_cron_generate_comments() {
     $api_key = get_option('acg_api_key', '');
     $min_words = get_option('acg_min_words', 5);
     $max_words = get_option('acg_max_words', 20);
-    $writing_style = get_option('acg_writing_style', '');
     $gpt_model = get_option('acg_gpt_model', 'gpt-4o-mini');
     $comment_count = get_option('acg_comment_count', 1);
+    $writing_styles = get_option('acg_writing_styles', []);
+    $include_author_names = get_option('acg_include_author_names', []); 
+
+    if (empty($writing_styles)) {
+        error_log('Aucun style d\'écriture disponible.');
+        return; 
+    }
 
     foreach ($posts as $post) {
         $post_id = $post->ID;
@@ -34,24 +39,36 @@ function acg_cron_generate_comments() {
             continue; 
         }
 
-        // Récupération de l'auteur de l'article
-        $post_author_id = get_post_field('post_author', $post_id); 
-        $post_author_first_name = get_user_meta($post_author_id, 'first_name', true);
-        $post_author_display_name = get_the_author_meta('display_name', $post_author_id);
-
-        // Prénom si existant, sinon, nom d'affichage
-        $post_author = !empty($post_author_first_name) ? $post_author_first_name : $post_author_display_name;
+    
+        $current_index = get_post_meta($post_id, '_acg_current_style_index', true);
+        if ($current_index === '') {
+            $current_index = 0; 
+        }
 
         for ($i = 0; $i < $comment_count; $i++) {
-     
+
+            $style = $writing_styles[$current_index];
+
+  
+            $include_author_name = in_array($current_index, $include_author_names);
+            if ($include_author_name) {
+                $post_author_id = get_post_field('post_author', $post_id); 
+                $post_author_first_name = get_user_meta($post_author_id, 'first_name', true);
+                $post_author_display_name = get_the_author_meta('display_name', $post_author_id);
+                $post_author = !empty($post_author_first_name) ? $post_author_first_name : $post_author_display_name;
+                $inclureauteur = "Adresse toi directement à l'auteur de l'article, " . $post_author . ", en répondant : ";
+            } else {
+                $inclureauteur = ""; 
+            }
+
             $full_prompt = [
                 [
                     'role' => 'system',
-                    'content' => 'Voici le contenu de l\'article : ' . $post_content . '. Voici le style d\'écriture : ' . $writing_style
+                    'content' => 'Voici le contenu de l\'article : ' . $post_content . '. Voici le style d\'ecriture et instructions :  ' . $style
                 ],
                 [
                     'role' => 'user',
-                    'content' => 'Adresse toi directement à l\'auteur de l\'article, ' . $post_author . ', en répondant : Ecris un commentaire d\'environ entre ' . intval($min_words) . ' et ' . intval($max_words) . ' mots. Donne-moi un json avec la variable "auteur" et la variable "commentaire". Invente un nom et prénom unique différents de noms-prenoms classiques et rédige un commentaire court.'
+                    'content' => $inclureauteur . 'Ecris un commentaire d\'environ entre ' . intval($min_words) . ' et ' . intval($max_words) . ' mots. Donne-moi un json avec la variable "auteur" et la variable "commentaire". Si aucun prenom est specifie dans style d\'écriture pour les infos de l\'auteur du commentaire, alors invente un nom et prénom unique différents de noms prenoms classiques et rédige un commentaire court, sinon, utilise le prenom specifié dans le style decriture concernant l\'auteur du commentaire..'
                 ]
             ];
 
@@ -75,7 +92,6 @@ function acg_cron_generate_comments() {
                 ]),
             ]);
 
-           
             if (is_wp_error($response)) {
                 error_log('Erreur API: ' . $response->get_error_message());
                 continue;
@@ -105,6 +121,10 @@ function acg_cron_generate_comments() {
             } else {
                 error_log('Aucune réponse valide reçue de l\'API pour l\'article ID ' . $post_id);
             }
+
+
+            $current_index = ($current_index + 1) % count($writing_styles);
+            update_post_meta($post_id, '_acg_current_style_index', $current_index); 
         }
     }
 }

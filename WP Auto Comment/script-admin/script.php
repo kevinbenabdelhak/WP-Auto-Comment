@@ -101,7 +101,9 @@ function acg_enqueue_scripts($hook) {
             generateCommentNext(0, 0); // Commencer à générer des commentaires
         });
         
+
         // Gestion des boutons on/off pour les commentaires automatiques
+        
         $(".acg-auto-comment-toggle").change(function() {
             var postId = $(this).data("post-id");
             var enabled = this.checked ? 1 : 0;

@@ -1,6 +1,5 @@
 <?php  
 
-
 if (!defined('ABSPATH')) {
     exit; 
 }
@@ -11,9 +10,6 @@ function acg_add_auto_comment_column($columns) {
 }
 add_filter('manage_posts_columns', 'acg_add_auto_comment_column');
 
-
-
-// affiche la checkbox
 function acg_auto_comment_column_content($column_name, $post_id) {
     if ($column_name === 'auto_comment') {
         $is_enabled = get_post_meta($post_id, '_acg_auto_comment_enabled', true);

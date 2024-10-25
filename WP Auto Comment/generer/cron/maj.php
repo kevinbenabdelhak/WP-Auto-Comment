@@ -1,10 +1,8 @@
 <?php 
 
-
 if (!defined('ABSPATH')) {
     exit; 
 }
-
 
 function acg_update_cron() {
     $auto_comment_enabled = get_option('acg_auto_comment_enabled', 1);
@@ -22,9 +20,6 @@ function acg_update_cron() {
     }
 }
 
-
-
-
 // activer la tâche cron
 function acg_activate_cron() {
     $enabled = get_option('acg_auto_comment_enabled', 1);
@@ -38,17 +33,13 @@ function acg_activate_cron() {
 }
 add_action('wp', 'acg_activate_cron');
 
-
-
-
-// Ajout d'un intervalle personnalisé pour la tâche cron
+// intervalle personnalisé pour la tâche cron
 function acg_cron_intervals($schedules) {
     $interval = get_option('acg_cron_interval', 5);
 
-    // Vérifiez si l'intervalle est valide
     if ($interval > 0) {
         $schedules['every_five_minutes'] = [
-            'interval' => $interval * 60, // Convertir en secondes
+            'interval' => $interval * 60,
             'display' => __('Chaque X minutes')
         ];
     }
