@@ -26,8 +26,8 @@ function acg_options_page() {
             $gpt_model = get_option('acg_gpt_model', 'gpt-4o-mini'); 
             $comment_count = get_option('acg_comment_count', 1); 
             $citationprenomauteur = get_option('citationprenomauteur', 1); 
-            $writing_styles = get_option('acg_writing_styles', []);
-            $include_author_names = get_option('acg_include_author_names', []);
+            $writing_styles = (array) get_option('acg_writing_styles', []); 
+            $include_author_names = (array) get_option('acg_include_author_names', []); 
             ?>
             <table class="form-table">
                 <tr valign="top"><th scope="row" colspan="2" style="padding:0px !important;"><h2 style="margin:8px 0px !important;">Commentaire</h2></th></tr>
@@ -62,22 +62,25 @@ function acg_options_page() {
                 </tr>
                 <tr valign="top">
                     <td colspan="2"><h2 style="margin:8px 0px !important;">Templates de commentaires</h2><p style="max-width:740px;">Personnalisez les commentaires générés avec des templates prédéfinis en ajoutant des styles d'écriture. Le système alterne automatiquement entre les différents templates pour chaque commentaire créant ainsi une diversité dans les réponses.</p></td>
-					
                 </tr>
                 <tr valign="top">
                     <td colspan="2">
                         <div id="writing-styles-container" style="gap: 10px; display: flex; flex-direction: column; margin-bottom: 10px;">
-							<style>.writing-style{display: flex; flex-direction: row; flex-wrap: nowrap; align-content: center; align-items: center; gap: 20px;}</style>
-							<?php foreach ($writing_styles as $index => $style): ?>
-                                <div class="writing-style">
-                                    <textarea name="acg_writing_styles[]" rows="4" cols="50"><?php echo esc_textarea($style); ?></textarea>
-                                    <label>
-                                        <input type="checkbox" name="acg_include_author_names[]" value="<?php echo $index; ?>" <?php checked(in_array($index, $include_author_names), true); ?> />
-                                        S'adresser à l'auteur
-                                    </label>
-                                    <button type="button" class="button action remove-style-button"  >Supprimer</button>
-                                </div>
-                            <?php endforeach; ?>
+                            <style>.writing-style{display: flex; flex-direction: row; flex-wrap: nowrap; align-content: center; align-items: center; gap: 20px;}</style>
+                            <?php if (!empty($writing_styles)): ?>
+                                <?php foreach ($writing_styles as $index => $style): ?>
+                                    <div class="writing-style">
+                                        <textarea name="acg_writing_styles[]" rows="4" cols="50"><?php echo esc_textarea($style); ?></textarea>
+                                        <label>
+                                            <input type="checkbox" name="acg_include_author_names[]" value="<?php echo esc_attr($index); ?>" <?php checked(in_array($index, $include_author_names), true); ?> />
+                                            S'adresser à l'auteur
+                                        </label>
+                                        <button type="button" class="button action remove-style-button">Supprimer</button>
+                                    </div>
+                                <?php endforeach; ?>
+                            <?php else: ?>
+                                <p>Aucun template de commentaire n'est actuellement défini.</p>
+                            <?php endif; ?>
                         </div>
                         <button type="button" class="button action" id="add-writing-style-button">Ajouter un template</button>
                     </td>
@@ -95,7 +98,7 @@ function acg_options_page() {
                 <tr valign="top">
                     <th scope="row">Intervalle de publication des commentaires en minutes</th>
                     <td><input type="number" name="acg_cron_interval" value="<?php echo esc_attr($cron_interval); ?>" min="1" <?php disabled(!$auto_comment_enabled); ?> />
-                        <p>Choisissez une intervale entre la publication des commentaires</p>
+                        <p>Choisissez une intervalle entre la publication des commentaires</p>
                     </td>
                 </tr>
                 <tr valign="top">
@@ -109,9 +112,7 @@ function acg_options_page() {
         </form>
     </div>
 
-
-
-<!-- pour gérer le répéteur -->
+    <!-- pour gérer le répéteur -->
     <script>
         document.getElementById('add-writing-style-button').addEventListener('click', function() {
             var container = document.getElementById('writing-styles-container');
@@ -119,7 +120,6 @@ function acg_options_page() {
             newStyle.className = 'writing-style';
             newStyle.innerHTML = '<textarea name="acg_writing_styles[]" rows="4" cols="50"></textarea><label><input type="checkbox" name="acg_include_author_names[]" value="" /> Inclure le nom de l\'auteur</label><button type="button" class="remove-style-button">Supprimer</button>';
             container.appendChild(newStyle);
-
 
             newStyle.querySelector('.remove-style-button').addEventListener('click', function() {
                 container.removeChild(newStyle);
@@ -135,18 +135,17 @@ function acg_options_page() {
     <?php
 }
 
-
-
 function acg_register_settings() {
     register_setting('acg_options_group', 'acg_api_key');
     register_setting('acg_options_group', 'acg_writing_styles');
     register_setting('acg_options_group', 'acg_include_author_names');
     register_setting('acg_options_group', 'acg_min_words');
     register_setting('acg_options_group', 'acg_max_words');
-    register_setting('acg_options_group', 'acg_cron_interval'); 
+    
     register_setting('acg_options_group', 'acg_auto_comment_enabled'); 
     register_setting('acg_options_group', 'acg_gpt_model'); 
     register_setting('acg_options_group', 'acg_comment_count'); 
-    register_setting('acg_options_group', 'citationprenomauteur'); 
+    register_setting('acg_options_group', 'citationprenomauteur');
+    register_setting('acg_options_group', 'acg_cron_interval'); 
 }
 add_action('admin_init', 'acg_register_settings');
