@@ -50,6 +50,9 @@ WP Auto Comment est un plugin WordPress qui permet de générer automatiquement 
 
 ## MAJ
 
+### 1.3
+* Patch sur l'enregistrement des cases à cocher dans la page listing des articles
+
 ### 1.2
 * Possibilité de créer des templates de commentaire (idéal pour briser les redondances de l'IA)
 
