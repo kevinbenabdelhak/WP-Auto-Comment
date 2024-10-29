@@ -19,23 +19,23 @@ function acg_generate_comment() {
     $post_author_first_name = get_user_meta($post_author_id, 'first_name', true);
     $post_author_display_name = get_the_author_meta('display_name', $post_author_id);
 
+ $post_author = !empty($post_author_first_name) ? $post_author_first_name : $post_author_display_name;
 
-    $post_author = !empty($post_author_first_name) ? $post_author_first_name : $post_author_display_name;
+   $current_index = get_post_meta($post_id, '_acg_current_style_index', true); 
+if ($current_index === '') {
+    $current_index = 0; 
+}
 
-    $current_index = get_post_meta($post_id, '_acg_current_style_index', true); 
-    if ($current_index === '') {
-        $current_index = 0; 
-    }
-
-
-    $style = $writing_styles[$current_index];
+$style = $writing_styles[$current_index];
 
 
-    $include_author_name = in_array($current_index, $include_author_names);
-    if ($include_author_name) {
-        $inclureauteur = "Adresse toi directement à l'auteur de l'article, " . $post_author . ", en répondant : ";
-    } else {
-    }
+$include_author_names = get_option('acg_include_author_names', []);
+$include_author_name = is_array($include_author_names) && in_array($current_index, $include_author_names);
+if ($include_author_name) {
+    $inclureauteur = "Adresse toi directement à l'auteur de l'article en début de commentaire : " . $post_author . ", en répondant : ";
+} else {
+    $inclureauteur = "";  
+}
 
     if (empty($api_key)) {
         wp_send_json_error(['data' => 'Clé API OpenAI non configurée.']);
@@ -46,17 +46,16 @@ function acg_generate_comment() {
         wp_send_json_error(['data' => 'Aucun style d\'écriture disponible.']);
     }
 
- 
-    $full_prompt = [
-        [
-            'role' => 'system',
-            'content' => 'Voici le contenu de l\'article : ' . $post_content . '. Voici le style d\'ecriture et instructions : ' . $style
-        ],
-        [
-            'role' => 'user',
-            'content' => $inclureauteur . 'Ecris un commentaire d\'environ entre ' . intval($min_words) . ' et ' . intval($max_words) . ' mots. Donne-moi un json avec la variable "auteur" et la variable "commentaire". Si aucun prenom est specifie dans style d\'écriture pour les infos de l\'auteur du commentaire, alors invente un nom et prénom unique différents de noms prenoms classiques et rédige un commentaire court, sinon, utilise le prenom specifié dans le style decriture concernant l\'auteur du commentaire..'
-        ]
-    ];
+$full_prompt = [
+    [
+        'role' => 'system',
+        'content' => 'Voici le contenu de l\'article : ' . $post_content . '. Voici le style d\'écriture à prendre en compte ainsi que les informations sur le personna à imiter pour la réponse : ' . $style
+    ],
+    [
+        'role' => 'user',
+        'content' => ' '. $inclureauteur . 'Donne-moi un JSON avec la variable "auteur" et la variable "commentaire".  Ecris un commentaire (désoptimisé) d\'environ entre ' . intval($min_words) . ' et ' . intval($max_words) . ' mots. Si le prénom et le nom de famille sont spécifiés dans le style d\'écriture ci-dessus/infos du persona à imiter, utilise exactement les mêmes dans la variable auteur. Sinon, invente un nom et un prénom uniques qui ne sont pas classiques. Rédige un commentaire court et pertinent en utilisant ces informations. Commentaire dans la langue dans laquelle est rédigé l\'article. Donne un avis naturel avec des mots simples.'
+    ]
+];
 
     $response = wp_remote_post('https://api.openai.com/v1/chat/completions', [
         'timeout' => 100,
@@ -67,8 +66,8 @@ function acg_generate_comment() {
         'body' => json_encode([
             'model' => $gpt_model,
             'messages' => $full_prompt,
-            'temperature' => 1,
-            'max_tokens' => 150,
+           'temperature' => 1.0,
+            'max_tokens' => 600,
             'top_p' => 1,
             'frequency_penalty' => 0,
             'presence_penalty' => 0,
