@@ -16,7 +16,6 @@ function acg_cron_generate_comments() {
     $min_words = get_option('acg_min_words', 5);
     $max_words = get_option('acg_max_words', 20);
     $gpt_model = get_option('acg_gpt_model', 'gpt-4o-mini');
-    $comment_count = get_option('acg_comment_count', 1);
     $writing_styles = get_option('acg_writing_styles', []);
     $include_author_names = get_option('acg_include_author_names', []); 
 
@@ -39,19 +38,40 @@ function acg_cron_generate_comments() {
             continue; 
         }
 
-    
-        $current_index = get_post_meta($post_id, '_acg_current_style_index', true);
-        if ($current_index === '') {
-            $current_index = 0; 
+        // Vérifier le nombre maximal de commentaires
+        $min_limit = (int) get_option('acg_comment_max_per_post_value_min', 1);
+        $max_limit = (int) get_option('acg_comment_max_per_post_value_max', 5);
+        
+        // Générer un nombre aléatoire de commentaires compris entre min et max (pour cette publication)
+        $current_comments = wp_count_comments($post_id)->total_comments;
+        $current_max_comments = get_post_meta($post_id, '_acg_max_comments', true);
+        
+        // Si pas encore défini, attribuer un nombre aléatoire
+        if (!$current_max_comments) {
+            $current_max_comments = rand($min_limit, $max_limit);
+            update_post_meta($post_id, '_acg_max_comments', $current_max_comments);
         }
 
+        // Ne pas publier si le nombre de commentaires a été atteint
+        if ($current_comments >= $current_max_comments) {
+            continue; 
+        }
+
+        // Obtenir les valeurs min et max pour les commentaires à générer
+        $min_comments = get_option('acg_comment_min_per_post', 1);
+        $max_comments = get_option('acg_comment_max_per_post', 5);
+        
+        // Calculer le nombre de commentaires à générer qui ne dépasse pas la limite
+        $available_space = $current_max_comments - $current_comments;
+        $comment_count = min(rand($min_comments, $max_comments), $available_space);
+
         for ($i = 0; $i < $comment_count; $i++) {
+            $current_index = get_post_meta($post_id, '_acg_current_style_index', true);
+            if ($current_index === '') {
+                $current_index = 0; 
+            }
 
             $style = $writing_styles[$current_index];
-
- 
-$include_author_names = get_option('acg_include_author_names', []);
-
 
             $include_author_name = is_array($include_author_names) && in_array($current_index, $include_author_names);
             if ($include_author_name) {
@@ -59,7 +79,7 @@ $include_author_names = get_option('acg_include_author_names', []);
                 $post_author_first_name = get_user_meta($post_author_id, 'first_name', true);
                 $post_author_display_name = get_the_author_meta('display_name', $post_author_id);
                 $post_author = !empty($post_author_first_name) ? $post_author_first_name : $post_author_display_name;
-                 $inclureauteur = "Adresse toi directement à l'auteur de l'article en début de commentaire : " . $post_author . ", en répondant : ";
+                $inclureauteur = "Adresse toi directement à l'auteur de l'article en début de commentaire : " . $post_author . ", en répondant : ";
             } else {
                 $inclureauteur = ""; 
             }
@@ -67,11 +87,11 @@ $include_author_names = get_option('acg_include_author_names', []);
             $full_prompt = [
                 [
                     'role' => 'system',
-                      'content' => 'Voici le contenu de l\'article : ' . $post_content . '. Voici le style d\'écriture à prendre en compte ainsi que les informations sur le personna à imiter pour la réponse : ' . $style
+                    'content' => 'Voici le contenu de l\'article : ' . $post_content . '. Voici le style d\'écriture à prendre en compte ainsi que les informations sur le persona à imiter pour la réponse : ' . $style
                 ],
                 [
                     'role' => 'user',
-                   'content' => ' '. $inclureauteur . 'Donne-moi un JSON avec la variable "auteur" et la variable "commentaire".  Ecris un commentaire (désoptimisé) d\'environ entre ' . intval($min_words) . ' et ' . intval($max_words) . ' mots. Si le prénom et le nom de famille sont spécifiés dans le style d\'écriture ci-dessus/infos du persona à imiter, utilise exactement les mêmes dans la variable auteur. Sinon, invente un nom et un prénom uniques qui ne sont pas classiques. Rédige un commentaire court et pertinent en utilisant ces informations. Commentaire dans la langue dans laquelle est rédigé l\'article. Donne un avis naturel avec des mots simples.'
+                    'content' => ' '. $inclureauteur . 'Donne-moi un JSON avec la variable "auteur" et la variable "commentaire".  Ecris un commentaire (désoptimisé) d\'environ entre ' . intval($min_words) . ' et ' . intval($max_words) . ' mots. Si le prénom et le nom de famille sont spécifiés dans le style d\'écriture ci-dessus/infos du persona à imiter, utilise exactement les mêmes dans la variable auteur. Sinon, invente un nom et un prénom uniques qui ne sont pas classiques. Rédige un commentaire court et pertinent en utilisant ces informations. Commentaire dans la langue dans laquelle est rédigé l\'article. Donne un avis naturel avec des mots simples.'
                 ]
             ];
 
@@ -125,7 +145,7 @@ $include_author_names = get_option('acg_include_author_names', []);
                 error_log('Aucune réponse valide reçue de l\'API pour l\'article ID ' . $post_id);
             }
 
-
+          
             $current_index = ($current_index + 1) % count($writing_styles);
             update_post_meta($post_id, '_acg_current_style_index', $current_index); 
         }

@@ -102,31 +102,61 @@ function acg_options_page() {
                 <tr valign="top">
                     <th style="padding:0 !important;" scope="row" colspan="2"><hr /></th>
                 </tr>
-                <tr valign="top"><th scope="row" colspan="2" style="padding:0px !important;"><h2 style="margin:8px 0px !important;">Génération automatique</h2>
+                <tr valign="top"><th scope="row" colspan="2" style="padding:0px !important;"><h2 style="margin:8px 0px !important;">Commentaires automatiques</h2>
 					
 					<p style="font-weight: 400; max-width: 640px;">
 						Vous pouvez créer des commentaires automatiquement à une fréquence donnée. Pour utiliser cette option, vous devez activer les cases à cocher "Commentaires automatiques" dans le tableau des publication sur la page listing des articles.
 					</p>
 					</th></tr>
+               
+				
+				<tr valign="top">
+                    <th scope="row">Activer la génération de commentaires automatiques</th>					
+                    <td><input type="checkbox" name="acg_auto_comment_enabled" value="1" <?php checked($auto_comment_enabled, 1); ?> />  
+						<p>
+							Cette option permet de générer automatiquement les coms sur les articles qui ont la case cochée "commentaire automatique"
+						</p>
+                    </td>
+                </tr>
+				
+				
+	<tr valign="top">
+    <th scope="row">Activer les commentaires automatiques pour les nouvelles publications</th>
+    <td>
+        <input type="checkbox" name="acg_auto_comment_default" value="1" <?php checked(get_option('acg_auto_comment_default', 1), 1); ?> />
+		<p>
+							Cette option permet de cocher la case "commentaire automatique" par défaut sur les nouvelles publications
+						</p>
+    </td>
+	</tr>
+				
                 <tr valign="top">
-                    <th scope="row">Activer la génération de commentaires automatiques</th>
+                    <th scope="row">Planifier les commentaires</th>
 					
-                    <td><input type="checkbox" name="acg_auto_comment_enabled" value="1" <?php checked($auto_comment_enabled, 1); ?> />
-                    <p>Activez ou désactivez la génération automatiques de commentaire</p>
+                    <td>
+					Publier entre <input style="width:50px;" type="number" name="acg_comment_min_per_post" value="<?php echo esc_attr(get_option('acg_comment_min_per_post', 1)); ?>" min="1" /> et <input style="width:50px;" type="number" name="acg_comment_max_per_post" value="<?php echo esc_attr(get_option('acg_comment_max_per_post', 5)); ?>" min="1" /> commentaires toutes les <input style="width:50px;" type="number" name="acg_cron_interval" value="<?php echo esc_attr($cron_interval); ?>" min="1"  /> minutes par publication
                     </td>
-                </tr>
-                <tr valign="top">
-                    <th scope="row">Intervalle de publication des commentaires en minutes</th>
-                    <td><input type="number" name="acg_cron_interval" value="<?php echo esc_attr($cron_interval); ?>" min="1" <?php disabled(!$auto_comment_enabled); ?> />
-                        <p>Choisissez une intervalle entre la publication des commentaires</p>
-                    </td>
-                </tr>
-                <tr valign="top">
-                    <th scope="row">Nombre de commentaires par article</th>
-                    <td><input type="number" name="acg_comment_count" value="<?php echo esc_attr($comment_count); ?>" min="1" />
-                    <p>Indiquez un nombre de commentaire par article</p>
-                    </td>
-                </tr>
+                </tr>				
+				
+				
+								
+
+				
+				
+				
+			<tr valign="top">
+    <th scope="row">Nombre maximum de commentaires par publication</th>
+    <td>
+		Ne jamais dépasser entre <input style="width:50px;" type="number" name="acg_comment_max_per_post_value_min" value="<?php echo esc_attr(get_option('acg_comment_max_per_post_value_min', 1)); ?>" min="1" /> et <input style="width:50px;" type="number" name="acg_comment_max_per_post_value_max" value="<?php echo esc_attr(get_option('acg_comment_max_per_post_value_max', 5)); ?>" min="1" /> commentaires par publication
+       
+        <p>Cette option génèrera un nombre aléatoire dès la première publication de commentaire automatique </p>
+    </td>
+			</tr>
+				
+
+				
+				
+				
             </table>
             <?php submit_button(); ?>
         </form>
@@ -213,6 +243,22 @@ function acg_options_page() {
     <?php
 }
 
+
+
+
+
+
+function acg_set_auto_comment_default($post_id) {
+    if (get_post_type($post_id) === 'post') {
+        $auto_comment_default = get_option('acg_auto_comment_default', 1);
+        update_post_meta($post_id, '_acg_auto_comment_enabled', $auto_comment_default ? '1' : '0');
+    }
+}
+add_action('wp_insert_post', 'acg_set_auto_comment_default');
+
+
+
+
 function acg_register_settings() {
     register_setting('acg_options_group', 'acg_api_key');
     register_setting('acg_options_group', 'acg_writing_styles');
@@ -229,6 +275,27 @@ function acg_register_settings() {
     register_setting('acg_options_group', 'acg_gpt_model'); 
     register_setting('acg_options_group', 'acg_comment_count'); 
     register_setting('acg_options_group', 'acg_cron_interval'); 
+	
+	
+	
+	// Nombre de coms max par boucle sur une publication
+	
+	register_setting('acg_options_group', 'acg_comment_min_per_post');
+	register_setting('acg_options_group', 'acg_comment_max_per_post');
+	
+	
+	
+	
+	// Nombre de coms max au total sur une publication
+
+	register_setting('acg_options_group', 'acg_comment_max_per_post_value_min');
+	register_setting('acg_options_group', 'acg_comment_max_per_post_value_max');
+	
+	
+	
+	
+	register_setting('acg_options_group', 'acg_auto_comment_default');
+	
 }
 add_action('admin_init', 'acg_register_settings');
 
