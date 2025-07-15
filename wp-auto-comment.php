@@ -4,7 +4,7 @@
 Plugin Name: WP Auto Comment
 Plugin URI: https://kevin-benabdelhak.fr/plugins/wp-auto-comment/
 Description: WP Auto Comment est un plugin conçu pour WordPress qui automatise la génération de commentaires sur les articles de blog. Il utilise l'API OpenAI pour créer des commentaires pertinents et personnalisés, apportant ainsi une valeur ajoutée aux articles et favorisant une interaction plus dynamique au sein de la communauté de lecteurs.
-Version: 1.5
+Version: 1.6
 Author: Kevin BENABDELHAK
 Author URI: https://kevin-benabdelhak.fr/
 Contributors: kevinbenabdelhak

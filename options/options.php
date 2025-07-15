@@ -28,23 +28,48 @@ function acg_options_page() {
             $writing_styles = (array) get_option('acg_writing_styles', []); 
             $include_author_names = (array) get_option('acg_include_author_names', []); 
             ?>
+
             <table class="form-table">
                 <tr valign="top"><th scope="row" colspan="2" style="padding:0px !important;"><h2 style="margin:8px 0px !important;">Réglages générales</h2>
-					<p style="font-weight:400;">Pour utiliser ce plugin, vous devez générer une clé API sur OpenAI et l'enregistrer dans cette page d'option avant de passer aux étapes suivantes.</p>
-					</th></tr>
+                    <p style="font-weight:400;">Pour utiliser ce plugin, vous devez générer une clé API sur OpenAI et l'enregistrer dans cette page d'option avant de passer aux étapes suivantes.</p>
+                </th></tr>
                 <tr valign="top">
                     <th scope="row">Clé API OpenAI</th>
                     <td><input type="text" name="acg_api_key" value="<?php echo esc_attr($api_key); ?>" />
                         <p><a href="https://platform.openai.com/api-keys" target="_blank">Générer une clé OpenAI</a></p>
                     </td>
                 </tr>
+                
+                <tr valign="top">
+                    <th scope="row">Publier par :</th>
+                    <td>
+                        <select name="acg_comment_publish_mode" id="comment_publish_mode">
+                            <option value="duration" <?php selected(get_option('acg_comment_publish_mode', 'duration'), 'duration'); ?>>Publier par durée</option>
+                            <option value="visits" <?php selected(get_option('acg_comment_publish_mode', 'duration'), 'visits'); ?>>Publier par visites (IP)</option>
+                        </select>
+                        <p>Choisissez comment vous souhaitez publier des commentaires.</p>
+                    </td>
+                </tr>
+                
+                <tr valign="top" id="ip-comment-interval-row" style="<?php echo get_option('acg_comment_publish_mode', 'duration') === 'visits' ? '' : 'display: none;'; ?>">
+                    <th scope="row">Publier X commentaires toutes les X IP</th>
+                    <td>
+                        <input type="number" name="acg_comment_per_ip" value="<?php echo esc_attr(get_option('acg_comment_per_ip', 1)); ?>" min="1" placeholder="Nombre de commentaires" />
+                        <input type="number" name="acg_interval_per_ip" value="<?php echo esc_attr(get_option('acg_interval_per_ip', 1)); ?>" min="1" placeholder="Intervalle d'IP" />
+                        <p>Exemple : Publier 5 commentaires toutes les 2 IP.</p>
+                    </td>
+                </tr>
+
                 <tr valign="top">
                     <th scope="row">Modèle GPT</th>
                     <td>
                         <select name="acg_gpt_model">
+                            <option value="gpt-4.1-mini" <?php selected($gpt_model, 'gpt-4.1-mini'); ?>>gpt-4.1-mini</option>
+                            <option value="gpt-4.1" <?php selected($gpt_model, 'gpt-4.1'); ?>>gpt-4.1</option>
                             <option value="gpt-4o-mini" <?php selected($gpt_model, 'gpt-4o-mini'); ?>>gpt-4o-mini</option>
                             <option value="gpt-4o" <?php selected($gpt_model, 'gpt-4o'); ?>>gpt-4o</option>
                             <option value="gpt-3.5-turbo" <?php selected($gpt_model, 'gpt-3.5-turbo'); ?>>gpt-3.5-turbo</option>
+
                         </select>
                         <p>Sélectionnez un modèle d'OpenAI</p>
                     </td>
@@ -63,33 +88,32 @@ function acg_options_page() {
                 </tr>
          
                 <tr valign="top">
-                     <td style="padding:0px !important;" colspan="2">
+                    <td style="padding:0px !important;" colspan="2">
                         <h2 style="margin:8px 0px !important;">Modèles de commentaires</h2>
-						 <p style="max-width: 590px;">Chaque modèle peut comprendre des informations sur l'auteur (nom/prénom) ainsi que des caractéristiques spécifiques qui définissent le ton et le style du commentaire. Grâce à ces modèles, vous pouvez créer des personas en plus d'éviter les redondances de l'IA. </p><br>
-						 <b>Vous pouvez générer ces modèles en masse avec gpt-4o-mini :</b>
-						<div style="display: flex;flex-direction: column;align-items: flex-start;margin-bottom: 15px;">  
-							<p>Entrez le nombre de modèles à générer : 
-                            <input type="number" id="template_count" min="1" value="1" style="width: 50px;" />
-                        </p>
-							<div id="generated_templates" ></div>
-                        <button type="button" id="generate_templates_button" class="button action">Générer</button>
-							
-						</div>
-						 <hr>
+                        <p style="max-width: 590px;">Chaque modèle peut comprendre des informations sur l'auteur (nom/prénom) ainsi que des caractéristiques spécifiques qui définissent le ton et le style du commentaire. Grâce à ces modèles, vous pouvez créer des personas en plus d'éviter les redondances de l'IA.</p><br>
+                        <b>Vous pouvez générer ces modèles en masse avec gpt-4o-mini :</b>
+                        <div style="display: flex;flex-direction: column;align-items: flex-start;margin-bottom: 15px;">  
+                            <p>Entrez le nombre de modèles à générer : 
+                                <input type="number" id="template_count" min="1" value="1" style="width: 50px;" />
+                            </p>
+                            <div id="generated_templates"></div>
+                            <button type="button" id="generate_templates_button" class="button action">Générer</button>
+                        </div>
+                        <hr>
                         <div id="writing-styles-container" style="gap: 10px; display: flex; flex-direction: column; margin-bottom: 10px;">
-							<style>.writing-style{gap: 10px; display: flex; flex-direction: row; margin-bottom: 10px; flex-wrap: nowrap; align-content: center; align-items: center;}</style>
+                            <style>.writing-style{gap: 10px; display: flex; flex-direction: row; margin-bottom: 10px; flex-wrap: nowrap; align-content: center; align-items: center;}</style>
                             <?php if (!empty($writing_styles)): ?>
                                 <?php foreach ($writing_styles as $index => $style): ?>
                                     <div class="writing-style">
                                       <div style="display: flex; flex-direction: column; gap: 8px;">
-										  <span>Description des auteurs des commentaires (identité, style d'écriture..)</span>
-										  <textarea name="acg_writing_styles[]" rows="4" cols="50"><?php echo esc_textarea($style); ?></textarea>
-										</div>  
-                                        <label>
+                                          <span>Description des auteurs des commentaires (identité, style d'écriture..)</span>
+                                          <textarea name="acg_writing_styles[]" rows="4" cols="50"><?php echo esc_textarea($style); ?></textarea>
+                                      </div>  
+                                      <label>
                                            <input type="checkbox" name="acg_include_author_names[]" value="<?php echo esc_attr($index); ?>" <?php checked(in_array($index, $include_author_names)); ?> />
                                             S'adresse directement à l'auteur de l'article
-                                        </label>
-                                        <button type="button" class="button action remove-style-button">Supprimer</button>
+                                      </label>
+                                      <button type="button" class="button action remove-style-button">Supprimer</button>
                                     </div>
                                 <?php endforeach; ?>
                             <?php else: ?>
@@ -99,64 +123,44 @@ function acg_options_page() {
                         <button type="button" class="button action" id="add-writing-style-button">Ajouter un modèle</button>
                     </td>
                 </tr>
+                
                 <tr valign="top">
                     <th style="padding:0 !important;" scope="row" colspan="2"><hr /></th>
                 </tr>
                 <tr valign="top"><th scope="row" colspan="2" style="padding:0px !important;"><h2 style="margin:8px 0px !important;">Commentaires automatiques</h2>
-					
-					<p style="font-weight: 400; max-width: 640px;">
-						Vous pouvez créer des commentaires automatiquement à une fréquence donnée. Pour utiliser cette option, vous devez activer les cases à cocher "Commentaires automatiques" dans le tableau des publication sur la page listing des articles.
-					</p>
-					</th></tr>
-               
-				
-				<tr valign="top">
-                    <th scope="row">Activer la génération de commentaires automatiques</th>					
+                    <p style="font-weight: 400; max-width: 640px;">
+                        Vous pouvez créer des commentaires automatiquement à une fréquence donnée. Pour utiliser cette option, vous devez activer les cases à cocher "Commentaires automatiques" dans le tableau des publications sur la page listing des articles.
+                    </p>
+                </th></tr>
+                
+                <tr valign="top">
+                    <th scope="row">Activer la génération de commentaires automatiques</th>                 
                     <td><input type="checkbox" name="acg_auto_comment_enabled" value="1" <?php checked($auto_comment_enabled, 1); ?> />  
-						<p>
-							Cette option permet de générer automatiquement les coms sur les articles qui ont la case cochée "commentaire automatique"
-						</p>
+                        <p>Cette option permet de générer automatiquement les commentaires sur les articles qui ont la case cochée "commentaire automatique".</p>
                     </td>
                 </tr>
-				
-				
-	<tr valign="top">
-    <th scope="row">Activer les commentaires automatiques pour les nouvelles publications</th>
-    <td>
-        <input type="checkbox" name="acg_auto_comment_default" value="1" <?php checked(get_option('acg_auto_comment_default', 1), 1); ?> />
-		<p>
-							Cette option permet de cocher la case "commentaire automatique" par défaut sur les nouvelles publications
-						</p>
-    </td>
-	</tr>
-				
+                
                 <tr valign="top">
-                    <th scope="row">Planifier les commentaires</th>
-					
-                    <td>
-					Publier entre <input style="width:50px;" type="number" name="acg_comment_min_per_post" value="<?php echo esc_attr(get_option('acg_comment_min_per_post', 1)); ?>" min="1" /> et <input style="width:50px;" type="number" name="acg_comment_max_per_post" value="<?php echo esc_attr(get_option('acg_comment_max_per_post', 5)); ?>" min="1" /> commentaires toutes les <input style="width:50px;" type="number" name="acg_cron_interval" value="<?php echo esc_attr($cron_interval); ?>" min="1"  /> minutes par publication
+                    <th scope="row">Activer les commentaires automatiques pour les nouvelles publications</th>
+                    <td><input type="checkbox" name="acg_auto_comment_default" value="1" <?php checked(get_option('acg_auto_comment_default', 1), 1); ?> />
+                        <p>Cette option permet de cocher la case "commentaire automatique" par défaut sur les nouvelles publications.</p>
                     </td>
-                </tr>				
-				
-				
-								
-
-				
-				
-				
-			<tr valign="top">
-    <th scope="row">Nombre maximum de commentaires par publication</th>
-    <td>
-		Ne jamais dépasser entre <input style="width:50px;" type="number" name="acg_comment_max_per_post_value_min" value="<?php echo esc_attr(get_option('acg_comment_max_per_post_value_min', 1)); ?>" min="1" /> et <input style="width:50px;" type="number" name="acg_comment_max_per_post_value_max" value="<?php echo esc_attr(get_option('acg_comment_max_per_post_value_max', 5)); ?>" min="1" /> commentaires par publication
-       
-        <p>Cette option génèrera un nombre aléatoire dès la première publication de commentaire automatique </p>
-    </td>
-			</tr>
-				
-
-				
-				
-				
+                </tr>
+                
+                <tr valign="top" id="cron-settings-row" style="<?php echo get_option('acg_comment_publish_mode', 'duration') === 'visits' ? 'display: none;' : ''; ?>">
+                    <th scope="row">Planifier les commentaires</th>
+                    <td>
+                        Publier entre <input style="width:50px;" type="number" name="acg_comment_min_per_post" value="<?php echo esc_attr(get_option('acg_comment_min_per_post', 1)); ?>" min="1" /> et <input style="width:50px;" type="number" name="acg_comment_max_per_post" value="<?php echo esc_attr(get_option('acg_comment_max_per_post', 5)); ?>" min="1" /> commentaires toutes les <input style="width:50px;" type="number" name="acg_cron_interval" value="<?php echo esc_attr($cron_interval); ?>" min="1" /> minutes par publication
+                    </td>
+                </tr>               
+                
+                <tr valign="top" id="max-comments-row" style="<?php echo get_option('acg_comment_publish_mode', 'duration') === 'visits' ? 'display: none;' : ''; ?>">
+                    <th scope="row">Nombre maximum de commentaires par publication</th>
+                    <td>
+                        Ne jamais dépasser entre <input style="width:50px;" type="number" name="acg_comment_max_per_post_value_min" value="<?php echo esc_attr(get_option('acg_comment_max_per_post_value_min', 1)); ?>" min="1" /> et <input style="width:50px;" type="number" name="acg_comment_max_per_post_value_max" value="<?php echo esc_attr(get_option('acg_comment_max_per_post_value_max', 5)); ?>" min="1" /> commentaires par publication
+                        <p>Cette option générera un nombre aléatoire dès la première publication de commentaire automatique.</p>
+                    </td>
+                </tr>
             </table>
             <?php submit_button(); ?>
         </form>
@@ -239,14 +243,24 @@ function acg_options_page() {
             });
         });
 
+        document.getElementById('comment_publish_mode').addEventListener('change', function() {
+            var selectedValue = this.value;
+            var cronSettingsRow = document.getElementById('cron-settings-row');
+            var maxCommentsRow = document.getElementById('max-comments-row');
+            
+            if (selectedValue === 'visits') {
+                document.getElementById('ip-comment-interval-row').style.display = ''; // Afficher pour visites
+                cronSettingsRow.style.display = 'none';
+                maxCommentsRow.style.display = 'none';
+            } else {
+                document.getElementById('ip-comment-interval-row').style.display = 'none'; // Cacher pour durée
+                cronSettingsRow.style.display = '';
+                maxCommentsRow.style.display = '';
+            }
+        });
     </script>
     <?php
 }
-
-
-
-
-
 
 function acg_set_auto_comment_default($post_id) {
     if (get_post_type($post_id) === 'post') {
@@ -256,46 +270,25 @@ function acg_set_auto_comment_default($post_id) {
 }
 add_action('wp_insert_post', 'acg_set_auto_comment_default');
 
-
-
-
 function acg_register_settings() {
     register_setting('acg_options_group', 'acg_api_key');
     register_setting('acg_options_group', 'acg_writing_styles');
     register_setting('acg_options_group', 'acg_include_author_names');
-	
-	
-	
-	
-	
     register_setting('acg_options_group', 'acg_min_words');
     register_setting('acg_options_group', 'acg_max_words');
-    
     register_setting('acg_options_group', 'acg_auto_comment_enabled'); 
     register_setting('acg_options_group', 'acg_gpt_model'); 
     register_setting('acg_options_group', 'acg_comment_count'); 
     register_setting('acg_options_group', 'acg_cron_interval'); 
-	
-	
-	
-	// Nombre de coms max par boucle sur une publication
-	
-	register_setting('acg_options_group', 'acg_comment_min_per_post');
-	register_setting('acg_options_group', 'acg_comment_max_per_post');
-	
-	
-	
-	
-	// Nombre de coms max au total sur une publication
-
-	register_setting('acg_options_group', 'acg_comment_max_per_post_value_min');
-	register_setting('acg_options_group', 'acg_comment_max_per_post_value_max');
-	
-	
-	
-	
-	register_setting('acg_options_group', 'acg_auto_comment_default');
-	
+    register_setting('acg_options_group', 'acg_comment_min_per_post'); 
+    register_setting('acg_options_group', 'acg_comment_max_per_post'); 
+    register_setting('acg_options_group', 'acg_comment_max_per_post_value_min'); 
+    register_setting('acg_options_group', 'acg_comment_max_per_post_value_max');    
+    register_setting('acg_options_group', 'acg_auto_comment_default'); 
+    // Ajoutez la sauvegarde des paramètres de publication par IP
+    register_setting('acg_options_group', 'acg_comment_publish_mode'); 
+    register_setting('acg_options_group', 'acg_comment_per_ip'); 
+    register_setting('acg_options_group', 'acg_interval_per_ip'); // Nouvelle option pour l'intervalle IP
 }
-add_action('admin_init', 'acg_register_settings');
 
+add_action('admin_init', 'acg_register_settings');
