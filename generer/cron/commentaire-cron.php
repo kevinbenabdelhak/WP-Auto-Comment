@@ -11,7 +11,14 @@ function acg_cron_generate_comments() {
         return;
     }
 
-    $posts = get_posts(['numberposts' => -1, 'post_type' => 'post', 'post_status' => 'publish']);
+    // Prend TOUS les types de contenus publics (post, page, CPTs)
+    $all_types = get_post_types(['public' => true, 'show_ui' => true]);
+    $posts = get_posts([
+        'numberposts' => -1,
+        'post_type'   => $all_types,
+        'post_status' => 'publish',
+    ]);
+
     $api_key = get_option('acg_api_key', '');
     $min_words = get_option('acg_min_words', 5);
     $max_words = get_option('acg_max_words', 20);
@@ -28,13 +35,7 @@ function acg_cron_generate_comments() {
     $comments_per_ip = get_option('acg_comment_per_ip', 1);
     $interval_per_ip = get_option('acg_interval_per_ip', 1); // Récupérer l'intervalle
 
-    // Récupérer l'adresse IP de la requête
     $user_ip = $_SERVER['REMOTE_ADDR'];
-    $ip_count = get_post_meta($post->ID, '_acg_ip_count_' . $user_ip, true);
-
-    if (!$ip_count) {
-        $ip_count = 0; // Si aucune IP n'a été comptée
-    }
 
     foreach ($posts as $post) {
         $post_id = $post->ID;
@@ -51,14 +52,17 @@ function acg_cron_generate_comments() {
         }
 
         // Mode "visits"
+        $ip_count = get_post_meta($post->ID, '_acg_ip_count_' . $user_ip, true);
+        if (!$ip_count) {
+            $ip_count = 0; // Si aucune IP n'a été comptée
+        }
+
         if ($publish_mode === 'visits') {
             // Publier plusieurs commentaires à chaque nouvelle IP jusqu'à la limite
             if ($ip_count < $interval_per_ip) {
-                // Créer plusieurs commentaires à la fois
                 for ($i = 0; $i < $comments_per_ip; $i++) {
                     create_comment($post_id, $post_content, $min_words, $max_words, $gpt_model, $writing_styles, $include_author_names);
                 }
-                // Mettre à jour le compteur d'IP pour l'adresse IP actuelle
                 $ip_count++;
                 update_post_meta($post_id, '_acg_ip_count_' . $user_ip, $ip_count);
             }
@@ -68,27 +72,23 @@ function acg_cron_generate_comments() {
         // Si le mode de publication est basé sur le temps, appliquez la logique de maximum de commentaires
         $min_limit = (int) get_option('acg_comment_max_per_post_value_min', 1);
         $max_limit = (int) get_option('acg_comment_max_per_post_value_max', 5);
-        
+
         // Vérification du nombre maximal de commentaires
         $current_comments = wp_count_comments($post_id)->total_comments;
         $current_max_comments = get_post_meta($post_id, '_acg_max_comments', true);
-    
-        // Si pas encore défini, attribuer un nombre aléatoire
+
         if (!$current_max_comments) {
             $current_max_comments = rand($min_limit, $max_limit);
             update_post_meta($post_id, '_acg_max_comments', $current_max_comments);
         }
 
-        // Ne pas publier si le nombre de commentaires a été atteint
         if ($current_comments >= $current_max_comments) {
             continue; 
         }
 
-        // Calculer le nombre de commentaires à générer
         $min_comments = get_option('acg_comment_min_per_post', 1);
         $max_comments = get_option('acg_comment_max_per_post', 5);
-        
-        // Calculer le nombre de commentaires à générer qui ne dépasse pas la limite
+
         $available_space = $current_max_comments - $current_comments;
         $comment_count = min(rand($min_comments, $max_comments), $available_space);
 

@@ -11,8 +11,6 @@ function acg_add_auto_comment_column($columns) {
     return $columns;
 }
 
-add_filter('manage_posts_columns', 'acg_add_auto_comment_column');
-
 // Contenu des colonnes
 function acg_auto_comment_column_content($column_name, $post_id) {
     if ($column_name === 'auto_comment') {
@@ -26,9 +24,15 @@ function acg_auto_comment_column_content($column_name, $post_id) {
         echo esc_html($max_comments ? $max_comments : '0');
     }
 }
-add_action('manage_posts_custom_column', 'acg_auto_comment_column_content', 10, 2);
 
-
+// Ajoute les colonnes à TOUS les post types publics (post, page, CPTs)
+add_action('init', function () {
+    $all_types = get_post_types(['public' => true, 'show_ui' => true]);
+    foreach ($all_types as $post_type) {
+        add_filter("manage_{$post_type}_posts_columns", 'acg_add_auto_comment_column');
+        add_action("manage_{$post_type}_posts_custom_column", 'acg_auto_comment_column_content', 10, 2);
+    }
+});
 
 
 // enregistrer la valeur de la case à cocher en ajax
@@ -77,12 +81,3 @@ function acg_enqueue_auto_comment_script() {
 }
 
 add_action('admin_footer', 'acg_enqueue_auto_comment_script');
-
-
-
-
-
-
-
-
-

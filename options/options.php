@@ -263,7 +263,8 @@ function acg_options_page() {
 }
 
 function acg_set_auto_comment_default($post_id) {
-    if (get_post_type($post_id) === 'post') {
+    $all_types = get_post_types(['public' => true, 'show_ui' => true]);
+    if (in_array(get_post_type($post_id), $all_types)) {
         $auto_comment_default = get_option('acg_auto_comment_default', 1);
         update_post_meta($post_id, '_acg_auto_comment_enabled', $auto_comment_default ? '1' : '0');
     }
