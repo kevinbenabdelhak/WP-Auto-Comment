@@ -50,6 +50,10 @@ WP Auto Comment est un plugin WordPress qui permet de générer automatiquement 
 
 ## MAJ
 
+### 1.7 
+* Compatibilité des commentaires automatique sur tout les types de contenus personnalisés (et pages)
+
+
 ### 1.6 
 * Ajout d'une option pour générer des commentaires en fonction des visites (par IP)
 * Ajout de gpt-4.1 et gpt-4.1-mini
