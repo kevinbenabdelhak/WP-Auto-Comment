@@ -29,7 +29,6 @@ function acg_options_page() {
             $include_author_names = (array) get_option('acg_include_author_names', []); 
             ?>
             <table class="form-table">
-
                 <tr valign="top"><th scope="row" colspan="2" style="padding:0px !important;"><h2 style="margin:8px 0px !important;">Réglages générales</h2>
                     <p style="font-weight:400;">Pour utiliser ce plugin, vous devez générer une clé API sur OpenAI et l'enregistrer dans cette page d'option avant de passer aux étapes suivantes.</p>
                 </th></tr>
@@ -106,10 +105,10 @@ function acg_options_page() {
                                     <div class="writing-style">
                                       <div style="display: flex; flex-direction: column; gap: 8px;">
                                           <span>Description des auteurs des commentaires (identité, style d'écriture..)</span>
-                                          <textarea name="acg_writing_styles[]" rows="4" cols="50"><?php echo esc_textarea($style); ?></textarea>
+                                          <textarea name="acg_writing_styles[<?php echo $index; ?>]" rows="4" cols="50"><?php echo esc_textarea($style); ?></textarea>
                                       </div>  
                                       <label>
-                                           <input type="checkbox" name="acg_include_author_names[]" value="<?php echo esc_attr($index); ?>" <?php checked(in_array($index, $include_author_names)); ?> />
+                                           <input type="checkbox" name="acg_include_author_names[<?php echo $index; ?>]" value="1" <?php checked(isset($include_author_names[$index]) && $include_author_names[$index] == 1); ?> />
                                             S'adresse directement à l'auteur de l'article
                                       </label>
                                       <button type="button" class="button action remove-style-button">Supprimer</button>
@@ -222,12 +221,21 @@ function acg_options_page() {
 
                         if (response.success) {
                             var template = response.data.templates[0];
+
+                            // Trover l'index pour le prochain modèle
+                            var writingStylesContainer = document.getElementById('writing-styles-container');
+                            var nextIndex = writingStylesContainer.querySelectorAll('.writing-style').length;
+
                             var div = document.createElement('div');
                             div.className = 'writing-style ';
-                            div.innerHTML = '<textarea name="acg_writing_styles[]" rows="4" cols="50">' + template + '</textarea>' +
-                                '<label><input type="checkbox" name="acg_include_author_names[]" value="" /> Inclure le nom de l\'auteur</label>' +
+                            div.innerHTML = '<textarea name="acg_writing_styles['+nextIndex+']" rows="4" cols="50">' + template + '</textarea>' +
+                                '<label><input type="checkbox" name="acg_include_author_names['+nextIndex+']" value="1" /> Inclure le nom de l\'auteur</label>' +
                                 '<button type="button" class="button action remove-style-button">Supprimer</button>';
                             generatedTemplatesContainer.appendChild(div);
+
+                            div.querySelector('.remove-style-button').addEventListener('click', function() {
+                                div.parentNode.removeChild(div);
+                            });
                             
                             index++; 
                             generateTemplate();
@@ -246,6 +254,7 @@ function acg_options_page() {
             
         });
         
+        // Synchronisation du bouton suppression sur le DOM existant :
         document.querySelectorAll('.remove-style-button').forEach(function(button) {
             button.addEventListener('click', function() {
                 button.parentElement.remove();
@@ -254,9 +263,10 @@ function acg_options_page() {
         
         document.getElementById('add-writing-style-button').addEventListener('click', function() {
             var container = document.getElementById('writing-styles-container');
+            var nextIndex = container.querySelectorAll('.writing-style').length;
             var newStyle = document.createElement('div');
             newStyle.className = 'writing-style';
-            newStyle.innerHTML = '<textarea name="acg_writing_styles[]" rows="4" cols="50"></textarea><label><input type="checkbox" name="acg_include_author_names[]" value="" /> S\'adresser à l\'auteur</label><button type="button" class="remove-style-button button action">Supprimer</button>';
+            newStyle.innerHTML = '<textarea name="acg_writing_styles['+nextIndex+']" rows="4" cols="50"></textarea><label><input type="checkbox" name="acg_include_author_names['+nextIndex+']" value="1" /> S\'adresser à l\'auteur</label><button type="button" class="remove-style-button button action">Supprimer</button>';
             container.appendChild(newStyle);
 
             newStyle.querySelector('.remove-style-button').addEventListener('click', function() {
