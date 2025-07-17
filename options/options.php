@@ -28,8 +28,8 @@ function acg_options_page() {
             $writing_styles = (array) get_option('acg_writing_styles', []); 
             $include_author_names = (array) get_option('acg_include_author_names', []); 
             ?>
-
             <table class="form-table">
+
                 <tr valign="top"><th scope="row" colspan="2" style="padding:0px !important;"><h2 style="margin:8px 0px !important;">Réglages générales</h2>
                     <p style="font-weight:400;">Pour utiliser ce plugin, vous devez générer une clé API sur OpenAI et l'enregistrer dans cette page d'option avant de passer aux étapes suivantes.</p>
                 </th></tr>
@@ -69,7 +69,6 @@ function acg_options_page() {
                             <option value="gpt-4o-mini" <?php selected($gpt_model, 'gpt-4o-mini'); ?>>gpt-4o-mini</option>
                             <option value="gpt-4o" <?php selected($gpt_model, 'gpt-4o'); ?>>gpt-4o</option>
                             <option value="gpt-3.5-turbo" <?php selected($gpt_model, 'gpt-3.5-turbo'); ?>>gpt-3.5-turbo</option>
-
                         </select>
                         <p>Sélectionnez un modèle d'OpenAI</p>
                     </td>
@@ -137,6 +136,28 @@ function acg_options_page() {
                     <th scope="row">Activer la génération de commentaires automatiques</th>                 
                     <td><input type="checkbox" name="acg_auto_comment_enabled" value="1" <?php checked($auto_comment_enabled, 1); ?> />  
                         <p>Cette option permet de générer automatiquement les commentaires sur les articles qui ont la case cochée "commentaire automatique".</p>
+                    </td>
+                </tr>
+
+                <!-- Nouvelle option : désactiver par tranche horaire -->
+                <tr valign="top">
+                    <th scope="row">Désactiver les commentaires automatiques sur une plage horaire</th>
+                    <td>
+                        <input type="checkbox" id="acg_disable_auto_comment_hours" name="acg_disable_auto_comment_hours" value="1"
+                            <?php checked(get_option('acg_disable_auto_comment_hours'), 1); ?> />
+                        <label for="acg_disable_auto_comment_hours">Activer la restriction horaire</label>
+                        <div id="acg_hour_range_fields" style="<?php echo get_option('acg_disable_auto_comment_hours') ? '' : 'display:none;'; ?> margin-top:10px;">
+                            <label for="acg_disable_auto_comment_start_hour" style="margin-right:10px;">Heure de début:</label>
+                            <input type="time" name="acg_disable_auto_comment_start_hour" id="acg_disable_auto_comment_start_hour"
+                                value="<?php echo esc_attr(get_option('acg_disable_auto_comment_start_hour', '03:00')); ?>" min="00:00" max="23:59"
+                            />
+                            <label for="acg_disable_auto_comment_end_hour" style="margin-left:20px;margin-right:10px;">Heure de fin:</label>
+                            <input type="time" name="acg_disable_auto_comment_end_hour" id="acg_disable_auto_comment_end_hour"
+                                value="<?php echo esc_attr(get_option('acg_disable_auto_comment_end_hour', '07:00')); ?>" min="00:00" max="23:59"
+                            />
+                        </div>
+                        <p>Les commentaires automatiques NE seront PAS publiés dans cette tranche horaire.<br>
+                        Exemple : 3h00–7h00 = Pas de commentaires générés par l’IA entre 3h et 7h du matin.</p>
                     </td>
                 </tr>
                 
@@ -258,6 +279,12 @@ function acg_options_page() {
                 maxCommentsRow.style.display = '';
             }
         });
+
+        // Désactivation horaire : Affiche/masque la plage selon la checkbox
+        document.getElementById('acg_disable_auto_comment_hours').addEventListener('change', function() {
+            var field = document.getElementById('acg_hour_range_fields');
+            field.style.display = this.checked ? '' : 'none';
+        });
     </script>
     <?php
 }
@@ -286,10 +313,12 @@ function acg_register_settings() {
     register_setting('acg_options_group', 'acg_comment_max_per_post_value_min'); 
     register_setting('acg_options_group', 'acg_comment_max_per_post_value_max');    
     register_setting('acg_options_group', 'acg_auto_comment_default'); 
-    // Ajoutez la sauvegarde des paramètres de publication par IP
     register_setting('acg_options_group', 'acg_comment_publish_mode'); 
     register_setting('acg_options_group', 'acg_comment_per_ip'); 
-    register_setting('acg_options_group', 'acg_interval_per_ip'); // Nouvelle option pour l'intervalle IP
+    register_setting('acg_options_group', 'acg_interval_per_ip');
+    register_setting('acg_options_group', 'acg_disable_auto_comment_hours');
+    register_setting('acg_options_group', 'acg_disable_auto_comment_start_hour');
+    register_setting('acg_options_group', 'acg_disable_auto_comment_end_hour');
 }
 
 add_action('admin_init', 'acg_register_settings');

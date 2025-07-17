@@ -7,6 +7,23 @@ if (!defined('ABSPATH')) {
 function acg_cron_generate_comments() {
     $enabled = get_option('acg_auto_comment_enabled', 1);
 
+    // Désactiver le cron dans la tranche horaire (optionnelle)
+    $disable_hours = get_option('acg_disable_auto_comment_hours', 0);
+    $start_hour = get_option('acg_disable_auto_comment_start_hour', '03:00');
+    $end_hour = get_option('acg_disable_auto_comment_end_hour', '07:00');
+    if ($disable_hours && $start_hour && $end_hour) {
+        $now     = current_time('H:i'); // Heure du site WP
+        // Gestion plage (supporte chevauchement minuit)
+        if (
+            ($start_hour < $end_hour && $now >= $start_hour && $now < $end_hour) ||
+            ($start_hour > $end_hour && ($now >= $start_hour || $now < $end_hour))
+        ) {
+            // Dans la plage de désactivation : on arrête le traitement !
+            error_log('[WP Auto Comment] Désactivation automatique des commentaires pendant la tranche horaire : ' . $start_hour . ' - ' . $end_hour);
+            return;
+        }
+    }
+
     if (!$enabled) {
         return;
     }
