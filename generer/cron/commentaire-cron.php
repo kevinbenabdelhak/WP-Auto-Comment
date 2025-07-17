@@ -116,13 +116,9 @@ function acg_cron_generate_comments() {
 }
 add_action('acg_cron_hook', 'acg_cron_generate_comments');
 
-
 function create_comment($post_id, $post_content, $min_words, $max_words, $gpt_model, $writing_styles, $include_author_names) {
-    $current_index = get_post_meta($post_id, '_acg_current_style_index', true);
-    if ($current_index === '') {
-        $current_index = 0; 
-    }
-
+    // CHOISIR LE STYLE AU HASARD
+    $current_index = array_rand($writing_styles); // <-- RANDOM au lieu du post_meta
     $style = $writing_styles[$current_index];
 
     $include_author_name = is_array($include_author_names) && in_array($current_index, $include_author_names);
@@ -135,6 +131,7 @@ function create_comment($post_id, $post_content, $min_words, $max_words, $gpt_mo
     } else {
         $inclureauteur = ""; 
     }
+
 
     $full_prompt = [
         [
