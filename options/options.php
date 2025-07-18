@@ -11,6 +11,9 @@ function acg_add_admin_menu() {
 add_action('admin_menu', 'acg_add_admin_menu');
 
 function acg_options_page() {
+    $comment_publish_mode = get_option('acg_comment_publish_mode', 'duration');
+    $auto_comment_default = get_option('acg_auto_comment_default', 1);
+    $delay_display = ($auto_comment_default && $comment_publish_mode === 'duration') ? '' : 'display:none;';
     ?>
     <div class="wrap">
         <h1>WP Auto Comment</h1>
@@ -29,28 +32,32 @@ function acg_options_page() {
             $include_author_names = (array) get_option('acg_include_author_names', []); 
             ?>
             <table class="form-table">
-                <tr valign="top"><th scope="row" colspan="2" style="padding:0px !important;"><h2 style="margin:8px 0px !important;">Réglages générales</h2>
-                    <p style="font-weight:400;">Pour utiliser ce plugin, vous devez générer une clé API sur OpenAI et l'enregistrer dans cette page d'option avant de passer aux étapes suivantes.</p>
-                </th></tr>
+                <tr valign="top">
+                    <th scope="row" colspan="2" style="padding:0px !important;">
+                        <h2 style="margin:8px 0px !important;">Réglages générales</h2>
+                        <p style="font-weight:400;">Pour utiliser ce plugin, vous devez générer une clé API sur OpenAI et l'enregistrer sur cette page d'options avant de passer aux étapes suivantes.</p>
+                    </th>
+                </tr>
                 <tr valign="top">
                     <th scope="row">Clé API OpenAI</th>
-                    <td><input type="text" name="acg_api_key" value="<?php echo esc_attr($api_key); ?>" />
+                    <td>
+                        <input type="text" name="acg_api_key" value="<?php echo esc_attr($api_key); ?>" />
                         <p><a href="https://platform.openai.com/api-keys" target="_blank">Générer une clé OpenAI</a></p>
                     </td>
                 </tr>
-                
+
                 <tr valign="top">
                     <th scope="row">Publier par :</th>
                     <td>
                         <select name="acg_comment_publish_mode" id="comment_publish_mode">
-                            <option value="duration" <?php selected(get_option('acg_comment_publish_mode', 'duration'), 'duration'); ?>>Publier par durée</option>
-                            <option value="visits" <?php selected(get_option('acg_comment_publish_mode', 'duration'), 'visits'); ?>>Publier par visites (IP)</option>
+                            <option value="duration" <?php selected($comment_publish_mode, 'duration'); ?>>Publier par durée</option>
+                            <option value="visits" <?php selected($comment_publish_mode, 'visits'); ?>>Publier par visites (IP)</option>
                         </select>
                         <p>Choisissez comment vous souhaitez publier des commentaires.</p>
                     </td>
                 </tr>
-                
-                <tr valign="top" id="ip-comment-interval-row" style="<?php echo get_option('acg_comment_publish_mode', 'duration') === 'visits' ? '' : 'display: none;'; ?>">
+
+                <tr valign="top" id="ip-comment-interval-row" style="<?php echo $comment_publish_mode === 'visits' ? '' : 'display:none;'; ?>">
                     <th scope="row">Publier X commentaires toutes les X IP</th>
                     <td>
                         <input type="number" name="acg_comment_per_ip" value="<?php echo esc_attr(get_option('acg_comment_per_ip', 1)); ?>" min="1" placeholder="Nombre de commentaires" />
@@ -84,7 +91,7 @@ function acg_options_page() {
                         <p>Nombre de mots maximum dans un commentaire</p>
                     </td>
                 </tr>
-         
+
                 <tr valign="top">
                     <td style="padding:0px !important;" colspan="2">
                         <h2 style="margin:8px 0px !important;">Modèles de commentaires</h2>
@@ -99,7 +106,9 @@ function acg_options_page() {
                         </div>
                         <hr>
                         <div id="writing-styles-container" style="gap: 10px; display: flex; flex-direction: column; margin-bottom: 10px;">
-                            <style>.writing-style{gap: 10px; display: flex; flex-direction: row; margin-bottom: 10px; flex-wrap: nowrap; align-content: center; align-items: center;}</style>
+                            <style>
+                                .writing-style{gap: 10px; display: flex; flex-direction: row; margin-bottom: 10px; flex-wrap: nowrap; align-content: center; align-items: center;}
+                            </style>
                             <?php if (!empty($writing_styles)): ?>
                                 <?php foreach ($writing_styles as $index => $style): ?>
                                     <div class="writing-style">
@@ -121,16 +130,16 @@ function acg_options_page() {
                         <button type="button" class="button action" id="add-writing-style-button">Ajouter un modèle</button>
                     </td>
                 </tr>
-                
+
                 <tr valign="top">
                     <th style="padding:0 !important;" scope="row" colspan="2"><hr /></th>
                 </tr>
-                <tr valign="top"><th scope="row" colspan="2" style="padding:0px !important;"><h2 style="margin:8px 0px !important;">Commentaires automatiques</h2>
+                <tr valign="top"><th scope="row" colspan="2"><h2 style="margin:8px 0px !important;">Commentaires automatiques</h2>
                     <p style="font-weight: 400; max-width: 640px;">
                         Vous pouvez créer des commentaires automatiquement à une fréquence donnée. Pour utiliser cette option, vous devez activer les cases à cocher "Commentaires automatiques" dans le tableau des publications sur la page listing des articles.
                     </p>
                 </th></tr>
-                
+
                 <tr valign="top">
                     <th scope="row">Activer la génération de commentaires automatiques</th>                 
                     <td><input type="checkbox" name="acg_auto_comment_enabled" value="1" <?php checked($auto_comment_enabled, 1); ?> />  
@@ -159,25 +168,31 @@ function acg_options_page() {
                         Exemple : 3h00–7h00 = Pas de commentaires générés par l’IA entre 3h et 7h du matin.</p>
                     </td>
                 </tr>
-                
+
                 <tr valign="top">
                     <th scope="row">Activer les commentaires automatiques pour les nouvelles publications</th>
-                    <td><input type="checkbox" name="acg_auto_comment_default" value="1" <?php checked(get_option('acg_auto_comment_default', 1), 1); ?> />
+                    <td>
+                        <input type="checkbox" id="acg_auto_comment_default" name="acg_auto_comment_default" value="1" <?php checked($auto_comment_default, 1); ?> />
                         <p>Cette option permet de cocher la case "commentaire automatique" par défaut sur les nouvelles publications.</p>
+                        
+                        <div id="auto-comment-delay-container" style="<?php echo $delay_display; ?>">
+                            <label for="acg_auto_comment_delay">Délai (minutes) avant la publication des commentaires :</label>
+                            <input type="number" name="acg_auto_comment_delay" value="<?php echo esc_attr(get_option('acg_auto_comment_delay', 30)); ?>" min="0" />
+                            <p>Temps d'attente avant la première publication de commentaires après la publication d'un nouvel article.</p>
+                        </div>
                     </td>
                 </tr>
                 
-                <tr valign="top" id="cron-settings-row" style="<?php echo get_option('acg_comment_publish_mode', 'duration') === 'visits' ? 'display: none;' : ''; ?>">
+                <tr valign="top" id="cron-settings-row" style="<?php echo $comment_publish_mode === 'visits' ? 'display: none;' : ''; ?>">
                     <th scope="row">Planifier les commentaires</th>
                     <td>
-                        Publier entre <input style="width:50px;" type="number" name="acg_comment_min_per_post" value="<?php echo esc_attr(get_option('acg_comment_min_per_post', 1)); ?>" min="1" /> et <input style="width:50px;" type="number" name="acg_comment_max_per_post" value="<?php echo esc_attr(get_option('acg_comment_max_per_post', 5)); ?>" min="1" /> commentaires toutes les <input style="width:50px;" type="number" name="acg_cron_interval" value="<?php echo esc_attr($cron_interval); ?>" min="1" /> minutes par publication
+                        Publier entre <input style="width:50px;" type="number" name="acg_comment_min_per_post" value="<?php echo esc_attr(get_option('acg_comment_min_per_post', 1)); ?>" min="1" /> et <input style="width:50px;" type="number" name="acg_comment_max_per_post" value="<?php echo esc_attr(get_option('acg_comment_max_per_post', 5)); ?>" min="1" /> commentaires toutes les <input style="width:50px;" type="number" name="acg_cron_interval" value="<?php echo esc_attr($cron_interval); ?>" min="1" /> minutes par publication.
                     </td>
                 </tr>               
-                
-                <tr valign="top" id="max-comments-row" style="<?php echo get_option('acg_comment_publish_mode', 'duration') === 'visits' ? 'display: none;' : ''; ?>">
+                <tr valign="top" id="max-comments-row" style="<?php echo $comment_publish_mode === 'visits' ? 'display: none;' : ''; ?>">
                     <th scope="row">Nombre maximum de commentaires par publication</th>
                     <td>
-                        Ne jamais dépasser entre <input style="width:50px;" type="number" name="acg_comment_max_per_post_value_min" value="<?php echo esc_attr(get_option('acg_comment_max_per_post_value_min', 1)); ?>" min="1" /> et <input style="width:50px;" type="number" name="acg_comment_max_per_post_value_max" value="<?php echo esc_attr(get_option('acg_comment_max_per_post_value_max', 5)); ?>" min="1" /> commentaires par publication
+                        Ne jamais dépasser entre <input style="width:50px;" type="number" name="acg_comment_max_per_post_value_min" value="<?php echo esc_attr(get_option('acg_comment_max_per_post_value_min', 1)); ?>" min="1" /> et <input style="width:50px;" type="number" name="acg_comment_max_per_post_value_max" value="<?php echo esc_attr(get_option('acg_comment_max_per_post_value_max', 5)); ?>" min="1" /> commentaires par publication.
                         <p>Cette option générera un nombre aléatoire dès la première publication de commentaire automatique.</p>
                     </td>
                 </tr>
@@ -186,117 +201,51 @@ function acg_options_page() {
         </form>
     </div>
 
-    <script>
-        document.getElementById('generate_templates_button').addEventListener('click', function() {
-            var count = parseInt(document.getElementById('template_count').value);
-            if (isNaN(count) || count < 1) {
-                alert("Veuillez entrer un nombre valide.");
-                return;
-            }
-            
-            var generatedTemplatesContainer = document.getElementById('generated_templates');
-            generatedTemplatesContainer.innerHTML = ""; 
+<script>
+    // JS pour le champ du délai
+    function updateDelayContainer() {
+        var mode = document.getElementById('comment_publish_mode').value;
+        var autoCommentDefault = document.getElementById('acg_auto_comment_default').checked;
+        var delayContainer = document.getElementById('auto-comment-delay-container');
+        if(mode !== 'duration') {
+            delayContainer.style.display = 'none';
+        } else {
+            delayContainer.style.display = autoCommentDefault ? '' : 'none';
+        }
+    }
 
-            var index = 0; 
+    document.getElementById('comment_publish_mode').addEventListener('change', updateDelayContainer);
+    document.getElementById('acg_auto_comment_default').addEventListener('change', updateDelayContainer);
+    document.addEventListener('DOMContentLoaded', updateDelayContainer);
+    // ...le reste de vos JS existants...
+</script>
 
-            function generateTemplate() {
-                if (index >= count) {
-                    return; 
-                }
 
-                var loadingMessage = document.createElement('p');
-                loadingMessage.textContent = "Génération du template " + (index + 1) + " en cours...";
-                generatedTemplatesContainer.appendChild(loadingMessage);
+<script>
+function updateOptionsVisibility() {
+    var mode = document.getElementById('comment_publish_mode').value;
+    var autoCommentDefault = document.getElementById('acg_auto_comment_default').checked;
+    // Les champs concernés
+    var ipIntervalRow     = document.getElementById('ip-comment-interval-row');
+    var cronSettingsRow   = document.getElementById('cron-settings-row');
+    var maxCommentsRow    = document.getElementById('max-comments-row');
+    var delayContainer    = document.getElementById('auto-comment-delay-container');
+    // Bloc IP
+    ipIntervalRow.style.display    = (mode === 'visits')   ? '' : 'none';
+    // Bloc durée
+    cronSettingsRow.style.display  = (mode === 'visits')   ? 'none' : '';
+    maxCommentsRow.style.display   = (mode === 'visits')   ? 'none' : '';
+    delayContainer.style.display   = (mode === 'duration' && autoCommentDefault) ? '' : 'none';
+}
+// Pour la sélection et la case à cocher
+document.getElementById('comment_publish_mode').addEventListener('change', updateOptionsVisibility);
+document.getElementById('acg_auto_comment_default').addEventListener('change', updateOptionsVisibility);
+// À l'ouverture de la page
+document.addEventListener('DOMContentLoaded', updateOptionsVisibility);
+</script>
 
-                jQuery.ajax({
-                    url: '<?php echo admin_url('admin-ajax.php'); ?>',
-                    type: 'POST',
-                    data: {
-                        action: 'acg_generate_comment_templates',
-                        count: 1, 
-                        nonce: '<?php echo wp_create_nonce('generate_templates_nonce'); ?>'
-                    },
-                    success: function(response) {
-                        loadingMessage.remove();
 
-                        if (response.success) {
-                            var template = response.data.templates[0];
-
-                            // Trover l'index pour le prochain modèle
-                            var writingStylesContainer = document.getElementById('writing-styles-container');
-                            var nextIndex = writingStylesContainer.querySelectorAll('.writing-style').length;
-
-                            var div = document.createElement('div');
-                            div.className = 'writing-style ';
-                            div.innerHTML = '<textarea name="acg_writing_styles['+nextIndex+']" rows="4" cols="50">' + template + '</textarea>' +
-                                '<label><input type="checkbox" name="acg_include_author_names['+nextIndex+']" value="1" /> Inclure le nom de l\'auteur</label>' +
-                                '<button type="button" class="button action remove-style-button">Supprimer</button>';
-                            generatedTemplatesContainer.appendChild(div);
-
-                            div.querySelector('.remove-style-button').addEventListener('click', function() {
-                                div.parentNode.removeChild(div);
-                            });
-                            
-                            index++; 
-                            generateTemplate();
-                        } else {
-                            alert("Erreur lors de la génération des templates: " + response.data.message);
-                        }
-                    },
-                    error: function() {
-                        loadingMessage.remove();
-                        alert("Une erreur s'est produite lors de la communication avec le serveur.");
-                    }
-                });
-            }
-
-            generateTemplate(); 
-            
-        });
-        
-        // Synchronisation du bouton suppression sur le DOM existant :
-        document.querySelectorAll('.remove-style-button').forEach(function(button) {
-            button.addEventListener('click', function() {
-                button.parentElement.remove();
-            });
-        });
-        
-        document.getElementById('add-writing-style-button').addEventListener('click', function() {
-            var container = document.getElementById('writing-styles-container');
-            var nextIndex = container.querySelectorAll('.writing-style').length;
-            var newStyle = document.createElement('div');
-            newStyle.className = 'writing-style';
-            newStyle.innerHTML = '<textarea name="acg_writing_styles['+nextIndex+']" rows="4" cols="50"></textarea><label><input type="checkbox" name="acg_include_author_names['+nextIndex+']" value="1" /> S\'adresser à l\'auteur</label><button type="button" class="remove-style-button button action">Supprimer</button>';
-            container.appendChild(newStyle);
-
-            newStyle.querySelector('.remove-style-button').addEventListener('click', function() {
-                container.removeChild(newStyle);
-            });
-        });
-
-        document.getElementById('comment_publish_mode').addEventListener('change', function() {
-            var selectedValue = this.value;
-            var cronSettingsRow = document.getElementById('cron-settings-row');
-            var maxCommentsRow = document.getElementById('max-comments-row');
-            
-            if (selectedValue === 'visits') {
-                document.getElementById('ip-comment-interval-row').style.display = ''; // Afficher pour visites
-                cronSettingsRow.style.display = 'none';
-                maxCommentsRow.style.display = 'none';
-            } else {
-                document.getElementById('ip-comment-interval-row').style.display = 'none'; // Cacher pour durée
-                cronSettingsRow.style.display = '';
-                maxCommentsRow.style.display = '';
-            }
-        });
-
-        // Désactivation horaire : Affiche/masque la plage selon la checkbox
-        document.getElementById('acg_disable_auto_comment_hours').addEventListener('change', function() {
-            var field = document.getElementById('acg_hour_range_fields');
-            field.style.display = this.checked ? '' : 'none';
-        });
-    </script>
-    <?php
+<?php
 }
 
 function acg_set_auto_comment_default($post_id) {
@@ -329,6 +278,12 @@ function acg_register_settings() {
     register_setting('acg_options_group', 'acg_disable_auto_comment_hours');
     register_setting('acg_options_group', 'acg_disable_auto_comment_start_hour');
     register_setting('acg_options_group', 'acg_disable_auto_comment_end_hour');
+    register_setting('acg_options_group', 'acg_auto_comment_delay');
 }
 
 add_action('admin_init', 'acg_register_settings');
+
+
+
+
+

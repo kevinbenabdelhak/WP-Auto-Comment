@@ -6,19 +6,20 @@ if (!defined('ABSPATH')) {
 
 function acg_cron_generate_comments() {
     $enabled = get_option('acg_auto_comment_enabled', 1);
+    $comment_publish_mode = get_option('acg_comment_publish_mode', 'duration');
+    $auto_comment_delay = get_option('acg_auto_comment_delay', 30) * 60; // Convertir en secondes
 
     // Désactiver le cron dans la tranche horaire (optionnelle)
     $disable_hours = get_option('acg_disable_auto_comment_hours', 0);
     $start_hour = get_option('acg_disable_auto_comment_start_hour', '03:00');
     $end_hour = get_option('acg_disable_auto_comment_end_hour', '07:00');
+    
     if ($disable_hours && $start_hour && $end_hour) {
-        $now     = current_time('H:i'); // Heure du site WP
-        // Gestion plage (supporte chevauchement minuit)
+        $now = current_time('H:i');
         if (
             ($start_hour < $end_hour && $now >= $start_hour && $now < $end_hour) ||
             ($start_hour > $end_hour && ($now >= $start_hour || $now < $end_hour))
         ) {
-            // Dans la plage de désactivation : on arrête le traitement !
             error_log('[WP Auto Comment] Désactivation automatique des commentaires pendant la tranche horaire : ' . $start_hour . ' - ' . $end_hour);
             return;
         }
@@ -28,7 +29,6 @@ function acg_cron_generate_comments() {
         return;
     }
 
-    // Prend TOUS les types de contenus publics (post, page, CPTs)
     $all_types = get_post_types(['public' => true, 'show_ui' => true]);
     $posts = get_posts([
         'numberposts' => -1,
@@ -48,10 +48,8 @@ function acg_cron_generate_comments() {
         return; 
     }
 
-    $publish_mode = get_option('acg_comment_publish_mode', 'duration');
     $comments_per_ip = get_option('acg_comment_per_ip', 1);
-    $interval_per_ip = get_option('acg_interval_per_ip', 1); // Récupérer l'intervalle
-
+    $interval_per_ip = get_option('acg_interval_per_ip', 1);
     $user_ip = $_SERVER['REMOTE_ADDR'];
 
     foreach ($posts as $post) {
@@ -68,14 +66,16 @@ function acg_cron_generate_comments() {
             continue; 
         }
 
-        // Mode "visits"
-        $ip_count = get_post_meta($post->ID, '_acg_ip_count_' . $user_ip, true);
-        if (!$ip_count) {
-            $ip_count = 0; // Si aucune IP n'a été comptée
-        }
+        $published_time = strtotime($post->post_date_gmt);
+        $current_time = time();
 
-        if ($publish_mode === 'visits') {
-            // Publier plusieurs commentaires à chaque nouvelle IP jusqu'à la limite
+        // === MODE VISITS (par IP) ===
+        if ($comment_publish_mode === 'visits') {
+            $ip_count = get_post_meta($post->ID, '_acg_ip_count_' . $user_ip, true);
+            if (!$ip_count) {
+                $ip_count = 0;
+            }
+
             if ($ip_count < $interval_per_ip) {
                 for ($i = 0; $i < $comments_per_ip; $i++) {
                     create_comment($post_id, $post_content, $min_words, $max_words, $gpt_model, $writing_styles, $include_author_names);
@@ -83,14 +83,19 @@ function acg_cron_generate_comments() {
                 $ip_count++;
                 update_post_meta($post_id, '_acg_ip_count_' . $user_ip, $ip_count);
             }
-            return; // Sortir pour ne pas continuer avec la logique de durée
+            continue; // on finit ce post, pas la peine d'appliquer la logique durée
         }
 
-        // Si le mode de publication est basé sur le temps, appliquez la logique de maximum de commentaires
+        // === MODE DURATION ===
+        // Appliquer le délai AVANT toute génération !
+        if (($current_time - $published_time) < $auto_comment_delay) {
+            continue;
+        }
+
+        // Limite de commentaires maximum
         $min_limit = (int) get_option('acg_comment_max_per_post_value_min', 1);
         $max_limit = (int) get_option('acg_comment_max_per_post_value_max', 5);
 
-        // Vérification du nombre maximal de commentaires
         $current_comments = wp_count_comments($post_id)->total_comments;
         $current_max_comments = get_post_meta($post_id, '_acg_max_comments', true);
 
@@ -117,8 +122,7 @@ function acg_cron_generate_comments() {
 add_action('acg_cron_hook', 'acg_cron_generate_comments');
 
 function create_comment($post_id, $post_content, $min_words, $max_words, $gpt_model, $writing_styles, $include_author_names) {
-    // CHOISIR LE STYLE AU HASARD
-    $current_index = array_rand($writing_styles); // <-- RANDOM au lieu du post_meta
+    $current_index = array_rand($writing_styles);
     $style = $writing_styles[$current_index];
 
     $include_author_name = is_array($include_author_names) && in_array($current_index, $include_author_names);
@@ -131,8 +135,6 @@ function create_comment($post_id, $post_content, $min_words, $max_words, $gpt_mo
     } else {
         $inclureauteur = ""; 
     }
-
-
     $full_prompt = [
         [
             'role' => 'system',
@@ -140,7 +142,7 @@ function create_comment($post_id, $post_content, $min_words, $max_words, $gpt_mo
         ],
         [
             'role' => 'user',
-            'content' => ' '. $inclureauteur . 'Donne-moi un JSON avec la variable "auteur" et la variable "commentaire".  Ecris un commentaire (désoptimisé) d\'environ entre ' . intval($min_words) . ' et ' . intval($max_words) . ' mots. Si le prénom et le nom de famille sont spécifiés dans le style d\'écriture ci-dessus/infos du persona à imiter, utilise exactement les mêmes dans la variable auteur. Sinon, invente un nom et un prénom uniques qui ne sont pas classiques. Rédige un commentaire court et pertinent en utilisant ces informations. Commentaire dans la langue dans laquelle est rédigé l\'article. Donne un avis naturel avec des mots simples.'
+            'content' => ' '. $inclureauteur . 'Donne-moi un JSON avec la variable "auteur" et la variable "commentaire".  Écris un commentaire (désoptimisé) d\'environ entre ' . intval($min_words) . ' et ' . intval($max_words) . ' mots. Si le prénom et le nom de famille sont spécifiés dans le style d\'écriture ci-dessus/infos du persona à imiter, utilise exactement les mêmes dans la variable auteur. Sinon, invente un nom et un prénom uniques qui ne sont pas classiques. Rédige un commentaire court et pertinent en utilisant ces informations. Commentaire dans la langue dans laquelle est rédigé l\'article. Donne un avis naturel avec des mots simples.'
         ]
     ];
 

@@ -16,6 +16,30 @@ function acg_auto_comment_column_content($column_name, $post_id) {
     if ($column_name === 'auto_comment') {
         $is_enabled = get_post_meta($post_id, '_acg_auto_comment_enabled', true);
         echo '<input type="checkbox" class="acg-auto-comment-toggle" data-post-id="' . esc_attr($post_id) . '" ' . checked($is_enabled, '1', false) . ' />';
+        
+        // Afficher le timer SI mode durée ET activé ET délai restant
+        $mode = get_option('acg_comment_publish_mode', 'duration');
+        $auto_comment_delay = (int) get_option('acg_auto_comment_delay', 0);
+
+        if ($is_enabled && $mode === 'duration' && $auto_comment_delay > 0) {
+            $published_time = strtotime(get_post_field('post_date_gmt', $post_id));
+            $current_time = time();
+            $delay_sec = $auto_comment_delay * 60;
+            $time_left = ($published_time + $delay_sec) - $current_time;
+
+            if ($time_left > 0) {
+                // minutes arrondi supérieur
+                $minutes = ceil($time_left / 60);
+                // Affichage en français
+                echo '<div class="acg-auto-comment-timer" style="white-space:nowrap;float:right;display:contents;">Dans ';
+                if ($minutes < 2) {
+                    echo $minutes . ' minute';
+                } else {
+                    echo $minutes . ' minutes';
+                }
+                echo '</div>';
+            }
+        }
     } elseif ($column_name === 'comment_count') {
         $comments_count = wp_count_comments($post_id)->total_comments;
         echo esc_html($comments_count);
