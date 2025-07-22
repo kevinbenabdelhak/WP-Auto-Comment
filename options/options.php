@@ -14,6 +14,8 @@ function acg_options_page() {
     $comment_publish_mode = get_option('acg_comment_publish_mode', 'duration');
     $auto_comment_default = get_option('acg_auto_comment_default', 1);
     $delay_display = ($auto_comment_default && $comment_publish_mode === 'duration') ? '' : 'display:none;';
+    $auto_comment_default_mode = get_option('acg_auto_comment_default_mode', 'all');
+    $auto_comment_default_frequency = get_option('acg_auto_comment_default_frequency', 2); // par défaut toutes les 2 publications
     ?>
     <div class="wrap">
         <h1>WP Auto Comment</h1>
@@ -175,6 +177,20 @@ function acg_options_page() {
                         <input type="checkbox" id="acg_auto_comment_default" name="acg_auto_comment_default" value="1" <?php checked($auto_comment_default, 1); ?> />
                         <p>Cette option permet de cocher la case "commentaire automatique" par défaut sur les nouvelles publications.</p>
                         
+                        <div id="auto-comment-default-mode-container" style="<?php echo ($auto_comment_default ? '' : 'display:none;'); ?> margin-top:10px;">
+    <label for="acg_auto_comment_default_mode"><b>Mode</b> :</label>
+    <select name="acg_auto_comment_default_mode" id="acg_auto_comment_default_mode">
+        <option value="all" <?php selected($auto_comment_default_mode, 'all'); ?>>Activer la case sur toutes les publications</option>
+        <option value="frequency" <?php selected($auto_comment_default_mode, 'frequency'); ?>>Activer la case toutes les X publications</option>
+        <option value="random" <?php selected($auto_comment_default_mode, 'random'); ?>>Activer la case aléatoirement (50% de chance)</option>
+    </select>
+    <span id="auto_comment_default_frequency_container" style="<?php echo ($auto_comment_default_mode === 'frequency') ? '' : 'display:none;'; ?>">
+        <input type="number" name="acg_auto_comment_default_frequency" id="acg_auto_comment_default_frequency"
+            value="<?php echo esc_attr($auto_comment_default_frequency); ?>" style="width:70px;" min="1" /> publications
+    </span>
+</div>
+                        
+                        
                         <div id="auto-comment-delay-container" style="<?php echo $delay_display; ?>">
                             <label for="acg_auto_comment_delay">Délai (minutes) avant la publication des commentaires :</label>
                             <input type="number" name="acg_auto_comment_delay" value="<?php echo esc_attr(get_option('acg_auto_comment_delay', 30)); ?>" min="0" />
@@ -202,60 +218,173 @@ function acg_options_page() {
     </div>
 
 <script>
-    // JS pour le champ du délai
-    function updateDelayContainer() {
+(function(){
+    // Gestion dynamique des options visibles/masquées
+    function updateOptionsVisibility() {
         var mode = document.getElementById('comment_publish_mode').value;
         var autoCommentDefault = document.getElementById('acg_auto_comment_default').checked;
-        var delayContainer = document.getElementById('auto-comment-delay-container');
-        if(mode !== 'duration') {
-            delayContainer.style.display = 'none';
-        } else {
-            delayContainer.style.display = autoCommentDefault ? '' : 'none';
-        }
+        document.getElementById('ip-comment-interval-row').style.display    = (mode === 'visits')   ? '' : 'none';
+        document.getElementById('cron-settings-row').style.display  = (mode === 'visits')   ? 'none' : '';
+        document.getElementById('max-comments-row').style.display   = (mode === 'visits')   ? 'none' : '';
+        document.getElementById('auto-comment-delay-container').style.display = (mode === 'duration' && autoCommentDefault) ? '' : 'none';
     }
+    document.getElementById('comment_publish_mode').addEventListener('change', updateOptionsVisibility);
+    document.getElementById('acg_auto_comment_default').addEventListener('change', updateOptionsVisibility);
+    document.addEventListener('DOMContentLoaded', updateOptionsVisibility);
 
-    document.getElementById('comment_publish_mode').addEventListener('change', updateDelayContainer);
-    document.getElementById('acg_auto_comment_default').addEventListener('change', updateDelayContainer);
-    document.addEventListener('DOMContentLoaded', updateDelayContainer);
-    // ...le reste de vos JS existants...
+    // Plage horaire activation
+    document.getElementById('acg_disable_auto_comment_hours').addEventListener('change', function() {
+        document.getElementById('acg_hour_range_fields').style.display = this.checked ? '' : 'none';
+    });
+
+    // Gestion modèles de commentaires (add/supprimer/génération)
+    function bindRemoveButtons() {
+        document.querySelectorAll('.remove-style-button').forEach(function(button) {
+            button.onclick = function() {
+                button.closest('.writing-style').remove();
+            }
+        });
+    }
+    bindRemoveButtons();
+    // Ajouter nouveau modèle
+    document.getElementById('add-writing-style-button').addEventListener('click', function () {
+        var container = document.getElementById('writing-styles-container');
+        var nextIndex = container.querySelectorAll('.writing-style').length;
+        var div = document.createElement('div');
+        div.className = 'writing-style';
+        div.innerHTML = `
+          <div style="display: flex; flex-direction: column; gap: 8px;">
+            <span>Description des auteurs des commentaires (identité, style d'écriture..)</span>
+            <textarea name="acg_writing_styles[`+nextIndex+`]" rows="4" cols="50"></textarea>
+          </div>
+          <label>
+            <input type="checkbox" name="acg_include_author_names[`+nextIndex+`]" value="1" />
+            S'adresse directement à l'auteur de l'article
+          </label>
+          <button type="button" class="button action remove-style-button">Supprimer</button>
+        `;
+        container.appendChild(div);
+        bindRemoveButtons();
+    });
+    // Génération IA (ajax, si activée côté serveur)
+    document.getElementById('generate_templates_button').addEventListener('click', function() {
+        var count = parseInt(document.getElementById('template_count').value);
+        if (isNaN(count) || count < 1) {
+            alert("Veuillez entrer un nombre valide.");
+            return;
+        }
+        var generatedTemplatesContainer = document.getElementById('generated_templates');
+        generatedTemplatesContainer.innerHTML = "";
+        var index = 0;
+        function generateTemplate() {
+            if (index >= count) return;
+            var loadingMessage = document.createElement('p');
+            loadingMessage.textContent = "Génération du template " + (index + 1) + " en cours...";
+            generatedTemplatesContainer.appendChild(loadingMessage);
+            jQuery.ajax({
+                url: '<?php echo admin_url('admin-ajax.php'); ?>',
+                type: 'POST',
+                data: {
+                    action: 'acg_generate_comment_templates',
+                    count: 1,
+                    nonce: '<?php echo wp_create_nonce('generate_templates_nonce'); ?>'
+                },
+                success: function(response) {
+                    loadingMessage.remove();
+                    if (response.success) {
+                        var template = response.data.templates[0];
+                        var writingStylesContainer = document.getElementById('writing-styles-container');
+                        var nextIndex = writingStylesContainer.querySelectorAll('.writing-style').length;
+                        var div = document.createElement('div');
+                        div.className = 'writing-style';
+                        div.innerHTML = `
+                          <div style="display: flex; flex-direction: column; gap: 8px;">
+                            <span>Description des auteurs des commentaires (identité, style d'écriture..)</span>
+                            <textarea name="acg_writing_styles[`+nextIndex+`]" rows="4" cols="50"></textarea>
+                          </div>
+                          <label>
+                            <input type="checkbox" name="acg_include_author_names[`+nextIndex+`]" value="1" />
+                            S'adresse directement à l'auteur de l'article
+                          </label>
+                          <button type="button" class="button action remove-style-button">Supprimer</button>
+                        `;
+                        writingStylesContainer.appendChild(div);
+                        bindRemoveButtons();
+                        div.querySelector('textarea').value = template;
+                        index++;
+                        generateTemplate();
+                    } else {
+                        alert("Erreur lors de la génération des templates: " + response.data.message);
+                    }
+                },
+                error: function() {
+                    loadingMessage.remove();
+                    alert("Une erreur s'est produite lors de la communication avec le serveur.");
+                }
+            });
+        }
+        generateTemplate();
+    });
+})();
+    
+    
+    
+        function updateDefaultModeVisibility() {
+        var defaultChecked = document.getElementById('acg_auto_comment_default').checked;
+        document.getElementById('auto-comment-default-mode-container').style.display = defaultChecked ? '' : 'none';
+        var mode = document.getElementById('acg_auto_comment_default_mode').value;
+        document.getElementById('auto_comment_default_frequency_container').style.display = (mode === 'frequency') ? '' : 'none';
+    }
+    document.getElementById('acg_auto_comment_default_mode').addEventListener('change', updateDefaultModeVisibility);
+    document.getElementById('acg_auto_comment_default').addEventListener('change', updateDefaultModeVisibility);
+    document.addEventListener('DOMContentLoaded', updateDefaultModeVisibility);
+    
+    
 </script>
-
-
-<script>
-function updateOptionsVisibility() {
-    var mode = document.getElementById('comment_publish_mode').value;
-    var autoCommentDefault = document.getElementById('acg_auto_comment_default').checked;
-    // Les champs concernés
-    var ipIntervalRow     = document.getElementById('ip-comment-interval-row');
-    var cronSettingsRow   = document.getElementById('cron-settings-row');
-    var maxCommentsRow    = document.getElementById('max-comments-row');
-    var delayContainer    = document.getElementById('auto-comment-delay-container');
-    // Bloc IP
-    ipIntervalRow.style.display    = (mode === 'visits')   ? '' : 'none';
-    // Bloc durée
-    cronSettingsRow.style.display  = (mode === 'visits')   ? 'none' : '';
-    maxCommentsRow.style.display   = (mode === 'visits')   ? 'none' : '';
-    delayContainer.style.display   = (mode === 'duration' && autoCommentDefault) ? '' : 'none';
-}
-// Pour la sélection et la case à cocher
-document.getElementById('comment_publish_mode').addEventListener('change', updateOptionsVisibility);
-document.getElementById('acg_auto_comment_default').addEventListener('change', updateOptionsVisibility);
-// À l'ouverture de la page
-document.addEventListener('DOMContentLoaded', updateOptionsVisibility);
-</script>
-
 
 <?php
 }
 
-function acg_set_auto_comment_default($post_id) {
+function acg_set_auto_comment_default($post_id, $post, $update) {
+    // Eviter les autosaves/révisions
+    if ($update) return;
+    if (defined('DOING_AUTOSAVE') && DOING_AUTOSAVE) return;
+    if (wp_is_post_revision($post_id)) return;
+
     $all_types = get_post_types(['public' => true, 'show_ui' => true]);
-    if (in_array(get_post_type($post_id), $all_types)) {
-        $auto_comment_default = get_option('acg_auto_comment_default', 1);
-        update_post_meta($post_id, '_acg_auto_comment_enabled', $auto_comment_default ? '1' : '0');
+    if (!in_array(get_post_type($post_id), $all_types)) return;
+
+    // Ne s'applique QUE à la création
+    $auto_comment_default = get_option('acg_auto_comment_default', 1);
+    $mode = get_option('acg_auto_comment_default_mode', 'all');
+    $frequency = max(intval(get_option('acg_auto_comment_default_frequency', 2)), 1);
+
+    if (!$auto_comment_default) {
+        update_post_meta($post_id, '_acg_auto_comment_enabled', '0');
+        return;
     }
+
+    $enabled = '0';
+    switch ($mode) {
+        case 'all':
+            $enabled = '1';
+            break;
+        case 'frequency':
+            // On stocke le nombre d'articles créés
+            $counter = intval(get_option('acg_auto_comment_post_counter', 0)) + 1;
+            update_option('acg_auto_comment_post_counter', $counter);
+            // Seule la publication courante est impactée
+            $enabled = ($frequency && ($counter % $frequency) === 0) ? '1' : '0';
+            break;
+        case 'random':
+            $enabled = (mt_rand(0, 1) === 1) ? '1' : '0';
+            break;
+        default:
+            $enabled = '1';
+    }
+    update_post_meta($post_id, '_acg_auto_comment_enabled', $enabled);
 }
-add_action('wp_insert_post', 'acg_set_auto_comment_default');
+add_action('wp_insert_post', 'acg_set_auto_comment_default', 10, 3);
 
 function acg_register_settings() {
     register_setting('acg_options_group', 'acg_api_key');
@@ -279,11 +408,7 @@ function acg_register_settings() {
     register_setting('acg_options_group', 'acg_disable_auto_comment_start_hour');
     register_setting('acg_options_group', 'acg_disable_auto_comment_end_hour');
     register_setting('acg_options_group', 'acg_auto_comment_delay');
+    register_setting('acg_options_group', 'acg_auto_comment_default_mode');
+    register_setting('acg_options_group', 'acg_auto_comment_default_frequency');
 }
-
 add_action('admin_init', 'acg_register_settings');
-
-
-
-
-

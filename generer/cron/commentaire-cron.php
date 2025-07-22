@@ -69,23 +69,18 @@ function acg_cron_generate_comments() {
         $published_time = strtotime($post->post_date_gmt);
         $current_time = time();
 
-        // === MODE VISITS (par IP) ===
-        if ($comment_publish_mode === 'visits') {
-            $ip_count = get_post_meta($post->ID, '_acg_ip_count_' . $user_ip, true);
-            if (!$ip_count) {
-                $ip_count = 0;
-            }
-
-            if ($ip_count < $interval_per_ip) {
-                for ($i = 0; $i < $comments_per_ip; $i++) {
-                    create_comment($post_id, $post_content, $min_words, $max_words, $gpt_model, $writing_styles, $include_author_names);
-                }
-                $ip_count++;
-                update_post_meta($post_id, '_acg_ip_count_' . $user_ip, $ip_count);
-            }
-            continue; // on finit ce post, pas la peine d'appliquer la logique durée
+// Mode "visites"
+if ($publish_mode === 'visits') {
+    $ip_count++;
+    if ($ip_count >= $interval_per_ip) {
+        for ($i = 0; $i < $comments_per_ip; $i++) {
+            create_comment($post_id, $post_content, $min_words, $max_words, $gpt_model, $writing_styles, $include_author_names);
         }
-
+        $ip_count = 0; 
+    }
+    update_post_meta($post_id, '_acg_ip_count_' . $user_ip, $ip_count);
+    return;
+}
         // === MODE DURATION ===
         // Appliquer le délai AVANT toute génération !
         if (($current_time - $published_time) < $auto_comment_delay) {
