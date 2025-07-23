@@ -4,7 +4,7 @@ Tags: commentaires, automatisation, OpenAI, génération, API
 Requires at least: 5.0   
 Tested up to: 6.6.2   
 Requires PHP: 7.0   
-Stable tag: 2.2               
+Stable tag: 2.3                  
 License: GPLv2 or later   
 License URI: https://www.gnu.org/licenses/gpl-2.0.html   
 
@@ -49,6 +49,15 @@ WP Auto Comment est un plugin WordPress qui permet de générer automatiquement 
    - Entrez vos paramètres d'API OpenAI pour activer la génération de commentaires.
 
 ## MAJ
+
+### 2.3      
+* Restructuration de la page d'option avec 3 onglets : Réglages Générales, Modèles de commentaires, Commentaires automatiques, Restrictions
+* Ajout d'une tranche maximale de commentaire pour le mode "IP"
+* Possibilité d'activer ou désactiver les commentaires autos sur certains types de contenus
+* Pour l'activation automatique de la case à cocher, une option a été ajouter pour indiquer le pourcentage de chance qu'elle s'active (c'était à 50% avant par défaut, c'est modifiable)
+* Possibilité de modifier le nombre max de commentaire par publication ( dans les colonnes )
+
+
 
 ### 2.2   
 * Correction d'un bug avec le mode IP (il fallait revenir sur la page d'option et réengistrer les options)
