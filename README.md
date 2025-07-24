@@ -16,7 +16,7 @@ Automatisez la génération de commentaires sur vos articles en utilisant l'API 
 
 WP Auto Comment est un plugin WordPress qui permet de générer automatiquement des commentaires sur vos articles en utilisant l'API OpenAI. Ce plugin enrichit vos publications en fournissant des commentaires pertinents et engageants sans nécessiter d'intervention manuelle.
 
-[![Voir le tutoriel](https://img.youtube.com/vi/Pj8Df5n7HRg/hqdefault.jpg)](https://www.youtube.com/watch?v=Pj8Df5n7HRg)
+[![Voir le tutoriel](https://img.youtube.com/vi/lyww0TMAI8A/maxresdefault.jpg)](https://www.youtube.com/watch?v=lyww0TMAI8A)
 
 
 #### Fonctionnalités principales :
