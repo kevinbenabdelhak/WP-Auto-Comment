@@ -87,6 +87,8 @@ function acg_options_page() {
                         <th scope="row">Modèle GPT</th>
                         <td>
                             <select name="acg_gpt_model">
+                                <option value="gpt-5-nano" <?php selected($gpt_model, 'gpt-5-nano'); ?>>gpt-5-nano</option>
+                                <option value="gpt-5-mini" <?php selected($gpt_model, 'gpt-5-mini'); ?>>gpt-5-mini</option>
                                 <option value="gpt-5" <?php selected($gpt_model, 'gpt-5'); ?>>gpt-5</option>
                                 <option value="gpt-4.1-mini" <?php selected($gpt_model, 'gpt-4.1-mini'); ?>>gpt-4.1-mini</option>
                                 <option value="gpt-4.1" <?php selected($gpt_model, 'gpt-4.1'); ?>>gpt-4.1</option>
