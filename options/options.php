@@ -4,12 +4,78 @@ if (!defined('ABSPATH')) {
     exit;
 }
 
+function acg_handle_import_export() {
+    // Handle Export
+    if (isset($_POST['acg_export_settings'])) {
+        if (!isset($_POST['acg_export_nonce']) || !wp_verify_nonce($_POST['acg_export_nonce'], 'acg_export_nonce_action')) {
+            wp_die('La vérification de sécurité a échoué.');
+        }
+
+        $options_to_export = [
+            'acg_api_key', 'acg_writing_styles', 'acg_include_author_names', 'acg_min_words',
+            'acg_max_words', 'acg_auto_comment_enabled', 'acg_gpt_model', 'acg_comment_count',
+            'acg_cron_interval', 'acg_comment_min_per_post', 'acg_comment_max_per_post',
+            'acg_auto_comment_default', 'acg_comment_publish_mode', 'acg_comment_per_ip',
+            'acg_interval_per_ip', 'acg_disable_auto_comment_hours', 'acg_disable_auto_comment_start_hour',
+            'acg_disable_auto_comment_end_hour', 'acg_auto_comment_delay', 'acg_auto_comment_default_mode',
+            'acg_auto_comment_default_frequency', 'acg_auto_comment_default_random_percent',
+            'acg_allowed_post_types', 'acg_enable_max_comments_per_post', 'acg_comment_max_per_post_value_min',
+            'acg_comment_max_per_post_value_max', 'acg_no_duplicate_persona_per_post', 'acg_persona_preference_enabled'
+        ];
+
+        $settings = [];
+        foreach ($options_to_export as $option_name) {
+            $settings[$option_name] = get_option($option_name);
+        }
+
+        header('Content-Type: application/json');
+        header('Content-Disposition: attachment; filename=wp-auto-comment-settings-' . date('Y-m-d') . '.json');
+        header('Pragma: no-cache');
+        echo json_encode($settings, JSON_PRETTY_PRINT);
+        exit;
+    }
+
+    // Handle Import
+    if (isset($_POST['acg_import_settings']) && isset($_FILES['acg_import_file'])) {
+        if (!isset($_POST['acg_import_nonce']) || !wp_verify_nonce($_POST['acg_import_nonce'], 'acg_import_nonce_action')) {
+            wp_die('La vérification de sécurité a échoué.');
+        }
+
+        if ($_FILES['acg_import_file']['error'] !== UPLOAD_ERR_OK) {
+            wp_die('Erreur lors du téléversement du fichier.');
+        }
+
+        $file_content = file_get_contents($_FILES['acg_import_file']['tmp_name']);
+        $settings = json_decode($file_content, true);
+
+        if (json_last_error() === JSON_ERROR_NONE && is_array($settings)) {
+            foreach ($settings as $option_name => $option_value) {
+                update_option(sanitize_key($option_name), $option_value);
+            }
+            wp_redirect(admin_url('options-general.php?page=wp-auto-comment&tab=import-export&import=success'));
+            exit;
+        } else {
+            wp_redirect(admin_url('options-general.php?page=wp-auto-comment&tab=import-export&import=error'));
+            exit;
+        }
+    }
+}
+add_action('admin_init', 'acg_handle_import_export');
+
 function acg_add_admin_menu() {
     add_options_page('WP Auto Comment', 'WP Auto Comment', 'manage_options', 'wp-auto-comment', 'acg_options_page');
 }
 add_action('admin_menu', 'acg_add_admin_menu');
 
 function acg_options_page() {
+    if (isset($_GET['import'])) {
+        if ($_GET['import'] === 'success') {
+            echo '<div class="notice notice-success is-dismissible"><p>Réglages importés avec succès.</p></div>';
+        } elseif ($_GET['import'] === 'error') {
+            echo '<div class="notice notice-error is-dismissible"><p>Erreur lors de la lecture du fichier de réglages. Le format est peut-être invalide.</p></div>';
+        }
+    }
+
     $comment_publish_mode = get_option('acg_comment_publish_mode', 'duration');
     $auto_comment_default = get_option('acg_auto_comment_default', 1);
     $auto_comment_default_mode = get_option('acg_auto_comment_default_mode', 'all');
@@ -45,6 +111,7 @@ function acg_options_page() {
             <a href="?page=wp-auto-comment&tab=templates" class="nav-tab <?php echo $current_tab == 'templates' ? 'nav-tab-active' : ''; ?>" data-tab="templates">Modèles de commentaires</a>
             <a href="?page=wp-auto-comment&tab=auto-comments" class="nav-tab <?php echo $current_tab == 'auto-comments' ? 'nav-tab-active' : ''; ?>" data-tab="auto-comments">Commentaires automatiques</a>
             <a href="?page=wp-auto-comment&tab=restrictions" class="nav-tab <?php echo $current_tab == 'restrictions' ? 'nav-tab-active' : ''; ?>" data-tab="restrictions">Restrictions</a>
+            <a href="?page=wp-auto-comment&tab=import-export" class="nav-tab <?php echo $current_tab == 'import-export' ? 'nav-tab-active' : ''; ?>" data-tab="import-export">Importer/Exporter</a>
             <a href="?page=wp-auto-comment&tab=don" class="nav-tab <?php echo $current_tab == 'don' ? 'nav-tab-active' : ''; ?>" data-tab="don">Don ❤️</a>
         </h2>
 
@@ -341,6 +408,43 @@ function acg_options_page() {
 
             <?php submit_button('Sauvegarder les modifications'); ?>
         </form>
+
+        <div id="tab-content-import-export" class="tab-content" style="<?php echo $current_tab == 'import-export' ? '' : 'display:none;'; ?>">
+            <table class="form-table">
+                <tr valign="top">
+                    <th scope="row" colspan="2" style="padding:0px !important;">
+                        <h2 style="margin:8px 0px !important;">Exporter les réglages</h2>
+                        <p style="font-weight:400;">Exportez toutes les options du plugin dans un fichier JSON. Vous pourrez l'utiliser pour sauvegarder vos réglages ou les transférer sur un autre site.</p>
+                    </th>
+                </tr>
+                <tr valign="top">
+                    <th scope="row">Exporter</th>
+                    <td>
+                        <form method="post" action="?page=wp-auto-comment&tab=import-export">
+                            <?php wp_nonce_field('acg_export_nonce_action', 'acg_export_nonce'); ?>
+                            <input type="submit" name="acg_export_settings" class="button button-primary" value="Exporter les réglages">
+                        </form>
+                    </td>
+                </tr>
+                <tr valign="top">
+                    <th scope="row" colspan="2" style="padding:0px !important; border-top: 1px solid #ccc; padding-top: 20px;">
+                        <h2 style="margin:8px 0px !important;">Importer les réglages</h2>
+                        <p style="font-weight:400;">Importez un fichier de réglages (JSON) pour restaurer une configuration. Attention, cela écrasera les réglages actuels.</p>
+                    </th>
+                </tr>
+                <tr valign="top">
+                    <th scope="row">Importer</th>
+                    <td>
+                        <form method="post" action="?page=wp-auto-comment&tab=import-export" enctype="multipart/form-data">
+                            <?php wp_nonce_field('acg_import_nonce_action', 'acg_import_nonce'); ?>
+                            <input type="file" name="acg_import_file" accept=".json">
+                            <input type="submit" name="acg_import_settings" class="button button-primary" value="Importer les réglages">
+                        </form>
+                    </td>
+                </tr>
+            </table>
+        </div>
+
     </div>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/Sortable/1.15.2/Sortable.min.js"></script>
 <script>
